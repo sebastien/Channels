@@ -8,6 +8,7 @@ Version 1.1::
 Version 1.0::
 
 	[ ] Complete up-to-date documentation
+	[ ] Complete test cases
 
 Version 0.9::
 
@@ -17,5 +18,6 @@ Version 0.9::
 Version 0.8::
 
 	[ ] Complete rewrite (in Sugar) of Extend 1
+	[ ] Basic unit tests
 
 # EOF
