@@ -1,0 +1,16 @@
+== Channels Roadmap
+
+Version 1.0::
+
+	[ ] Complete up-to-date documentation
+
+Version 0.9::
+
+	[ ] Add statistics/metrics to channels
+	[ ] Add proper error-handling
+
+Version 0.8::
+
+	[ ] Complete rewrite (in Sugar) of Extend 1
+
+# EOF
