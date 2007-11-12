@@ -1,5 +1,10 @@
 == Channels Roadmap
 
+Version 1.1::
+
+	[ ] Abstract channels to different protocols
+	[ ] Add support for Python
+
 Version 1.0::
 
 	[ ] Complete up-to-date documentation

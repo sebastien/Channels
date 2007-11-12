@@ -20,7 +20,7 @@
 | This implementation of Futures was inspired from the Oz programming language.
 
 	@shared   STATES  = {WAITING:1,SET:2,FAILED:3}
-	@shared   REASONS = {FAILURE:"failure",TIMEOUT:"timeout"}
+	@shared   REASONS = {FAILURE:"failure",TIMEOUT:"timeout",EXCEPTION:"exception"}
 	@property _value
 	@property _errorReason
 	@property _errorDetails
@@ -39,7 +39,7 @@
 		_value = value
 		state  = STATES SET
 		_processors :: {p| _value = p(_value)}
-		_onSet      :: {c| c(_value, self}
+		_onSet      :: {c| c(_value, self) }
 		return self
 	@end
 
@@ -177,5 +177,241 @@
 	@end
 
 @end
+
+@class Channel
+
+	@property options = {
+		prefix    : ""
+		evalJSON  : True
+		forceJSON : True
+	}
+	@property transport = {
+		get       : Undefined
+		post      : Undefined
+	}
+
+	@constructor options={}
+		options :: {v,k| self options [k] = v }
+	@end
+
+	@method get url, future=Undefined
+	| Invokes a 'GET' to the given url (prefixed by the optional 'prefix' set in
+	| this channel options) and returns a 'Future'.
+	|
+	| The future is already bound with a 'refresh' callback that will do the
+	| request again.
+		var get_url    = options prefix + url
+		future         = transport get (get_url, future) process ( _processValue )
+		future onRefresh {f| return get (url, f) }
+		return future
+	@end
+
+	@method post url, body, future=Undefined
+	| Invokes a 'POST' to the give url (prefixed by the optional 'prefix' set in
+	| this channel options), using the given 'body' as request body, and
+	| returning a 'Future' instance.
+	|
+	| The future is already bound with a 'refresh' callback that will do the
+	| request again.
+		var post_url   = options prefix + url
+		body           = _normalizeBOdy(body)
+		future         = transport post (post_url, body, future) process ( _processHTTPResponse )
+		future onRefresh {f| return post (url, body, f) }
+		return future
+	@end
+
+	@group HTTP
+
+		@method _normalizeBody
+		@as internal
+			if ( typeof(body) != "string" )
+				var new_body = ""
+				body :: {v,k|
+					new_body += k + "=" + _encodeURI (v) + "&"
+				}
+				body = new_body
+			end
+			return body or ''
+		@end
+
+		@method _reponseIsJSON repsonse
+			var content_type = reponse getResponseHeader "Content-Type"
+			if content_type is "text/javascript" or content_type is "text/x-json" or content_type is "application/json"
+				return True
+			else
+				return False
+			end
+		@end
+
+		@method _parseJSON json
+			return eval(json)
+		@end
+
+		@method _processHTTPResponse response
+			if (options forceJSON and options evalJSON ) or (options evalJSON and _reponseIsJSON(response))
+				return _parseJSON ( "(" + reponse responseText + ")" )
+			else
+				return response responseText
+			end
+		@end
+
+		@method _encodeURI value
+			return encodeURIComponent(value)
+		@end
+
+	@end
+
+@end
+
+@class SyncChannel: Channel
+	@constructor options
+		super (options)
+		_transport get  = HTTPTransport DEFAULT syncGet
+		_transport post = HTTPTransport DEFAULT syncPost
+	@end
+@end
+
+@class AsyncChannel: Channel
+	@constructor options
+		super (options)
+		_transport get  = HTTPTransport DEFAULT asyncGet
+		_transport post = HTTPTransport DEFAULT asyncPost
+	@end
+@end
+
+@class HTTPTransport
+| The 'HTTPTransport' is the low-level class used by channels to do HTTP
+| communication. This class really acts as a wrapper for platform-specific HTTP
+| communication implementations, taking care of returning 'Futures' instances to
+| be used by the channels.
+
+	@shared DEFAULT
+
+	@constructor
+	@end
+
+	@method syncGet url, body=None
+		# TODO: Unify with asyncGet 
+		var request = _createRequest()
+		request open ("GET", url, False)
+		request send (body)
+		var future = new Future ()
+		try
+			if request status == 200 or request status == 302
+				future set (req)
+			else
+				future fail ( Future REASONS FAILURE, request status )
+			end
+		catch error
+			future fail ( Future REASONS EXCEPTION, error )
+		end
+	@end
+
+	@method asyncGet url, body=None
+		var future   = new Future ()
+		var request  = _createRequest ()
+		var response = _processRequest (request,{
+			method       : 'GET'
+			url          : url
+			asynchronous : True
+			success      : {v| future set  (v) }
+			failure      : {v| future fail (Future REASONS FAILURE) }
+		})
+		return future
+	@end
+
+	@method syncPost url, body=None
+		# TODO: Unify with asyncPost
+		var request = _createRequest()
+		request open ("POST", url, False)
+		request send (body)
+		var future = new Future ()
+		try
+			if request status == 200 or request status == 302
+				future set (req)
+			else
+				future fail ( Future REASONS FAILURE, request status )
+			end
+		catch error
+			future fail ( Future REASONS EXCEPTION, error )
+		end
+	@end
+
+	@method asyncPost url, body=""
+		var future   = new Future ()
+		var request  = _createRequest ()
+		var response = _processRequest (request,{
+			method       : 'POST'
+			body         : body
+			url          : url
+			asynchronous : True
+			success      : {v| future set  (v) }
+			failure      : {v| future fail (Future REASONS FAILURE) }
+		})
+		return future
+	@end
+
+	@method asyncGet url, body=None
+		var future   = new Future ()
+		var request  = _createRequest ()
+		var response = _processRequest (request,{
+			method       : 'GET'
+			url          : url
+			asynchronous : True
+			success      : {v| future set  (v) }
+			failure      : {v| future fail (Future REASONS FAILURE) }
+		})
+		return future
+	@end
+
+	@method _createRequest
+	@as internal
+		@embed JavaScript
+		|// If IE is used, create a wrapper for the XMLHttpRequest object
+		|if ( typeof(XMLHttpRequest) == "undefined" )
+		|{
+		|	XMLHttpRequest = function(){return new ActiveXObject(
+		|		navigator.userAgent.indexOf("MSIE 5") >= 0 ?
+		|		"Microsoft.XMLHTTP" : "Msxml2.XMLHTTP"
+		|	)}
+		|}
+		|return new XMLHttpRequest()
+		@end
+	@end
+
+	@method _processRequest request, options
+	@as internal
+	| Processes the given HTTP request, taking into account the following
+	|'options':
+	|
+	| - 'method', the HTTP method ('GET', 'POST', in uppercase)
+	| - 'url', the requested url
+	| - 'asynchronous' (default 'True'), to indicate wether the request should
+	|    be made in synchronous or asynchronous mode
+	| - 'body' (default is '""') the optional request body
+	| - 'headers' is a dictionary of headers to add to the request
+	| - 'success', the callback that will be invoked on success, with the
+	|    request as argument
+	| - 'failure', the callback that will be invoked on failure, with the
+	|    request argument
+		var on_request_complete = {state|
+			if request readyState == 4
+				if request status >= 200 and request status < 300
+					options success (request)
+				else
+					options failure (request)
+				end
+			end
+		}
+		request onreadystatechange = on_request_complete
+		options headers :: {v,k| request setRequestHeader (k,v) }
+		request open (options method or "GET", options url, options asynchronous or True)
+		request send (options body or '')
+	@end
+
+@end
+
+# TODO: Rewrite when Sugar supports initialize
+HTTPTransport DEFAULT = new HTTPTransport ()
 
 # EOF
