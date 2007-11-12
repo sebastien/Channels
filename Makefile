@@ -2,7 +2,7 @@
 # TODO: Replace all this with source/target shortcuts
 #
 SUGAR=sugar
-PROJET=channels
+PROJECT=channels
 DIR_SOURCES=Sources
 DIR_DIST=Distribution
 SOURCES_SJS=$(wildcard $(DIR_SOURCES)/*.sjs)
@@ -18,10 +18,10 @@ DOC_HTML=$(DOC_TEXT:.txt=.html)
 all: doc dist
 	@echo
 
-doc: $(API_DOC) $(DOC_HTML)
+doc: $(DOC_API) $(DOC_HTML)
 	@echo "Documentation ready."
 
-dist: $(EXTEND_DIST) $(EXTEND_SUGAR_DIST)
+dist: $(PRODUCT_JS) doc $(DIR_DIST)
 	@echo "Distribution ready."
 
 clean:
@@ -32,14 +32,11 @@ clean:
 $(DOC_API): $(SOURCES_SJS) $(DIR_DIST)
 	$(SUGAR) -a $@ $< > /dev/null
 
-$(API_DOC_SUGAR): $(EXTEND_SOURCE)
-	$(SUGAR) -DSUGAR_RUNTIME -a $@ $< > /dev/null
-
-$(DIR_DIST)/%.js: $(DIR_SOURCES)/%.sjs
+$(DIR_DIST)/%.js: $(DIR_SOURCES)/%.sjs $(DIR_DIST)
 	$(SUGAR) -cljavascript $< > $@
 
 $(DIR_DIST):
-	mkdir -p $<
+	mkdir -p $@
 
 %.html: %.txt
 	kiwi $< $@
