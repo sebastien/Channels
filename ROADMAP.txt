@@ -1,14 +1,8 @@
 == Channels Roadmap
 
-Version 1.1::
-
-	[ ] Abstract channels to different protocols (not only HTTP)
-	[ ] Add support for Python
-
 Version 1.0::
 
 	[ ] Complete up-to-date documentation
-	[ ] Complete test cases
 
 Version 0.9::
 
@@ -17,6 +11,6 @@ Version 0.9::
 
 Version 0.8::
 
-	[ ] Basic unit tests
+	[ ] Complete rewrite (in Sugar) of Extend 1
 
 # EOF
