@@ -7,7 +7,7 @@ DIR_SOURCES=Sources
 DIR_DIST=Distribution
 SOURCES_SJS=$(wildcard $(DIR_SOURCES)/*.sjs)
 PRODUCT_JS=$(SOURCES_SJS:$(DIR_SOURCES)/%.sjs=$(DIR_DIST)/%.js)
-TEST_SJS=$(wildcard Tests/*.sjs Tests/lib/sjs/*.sjs)
+TEST_SJS=$(wildcard Tests/*.sjs Tests/lib/js/*.sjs)
 TEST_PAML=$(wildcard Tests/*.paml)
 TEST_JS=$(TEST_SJS:%.sjs=%.js)
 TEST_HTML=$(TEST_PAML:%.paml=%.html)
