@@ -96,12 +96,12 @@
 
 	@method hasFailed
 	| Tells if this future has failed or not
-		reutrn (state is STATES FAILED)
+		return (state is STATES FAILED)
 	@end
 
 	@method hasSucceeded
 	| Tells if this future has succeeded or not (this is an alias for 'isSet')
-		reutrn isSet()
+		return isSet()
 	@end
 
 	@method onSet callback
@@ -126,6 +126,16 @@
 		_onFail push (callback)
 		if isSet() -> callback (_value, self)
 		return self
+	@end
+
+	@method getErrorReason
+	| Returns the reason for the error. This is only set when the future has failed.
+		return _errorReason
+	@end
+
+	@method getErrorDetails
+	| Returns the details for the error. This is only set when the future has failed.
+		return _errorDetails
 	@end
 
 	@group Extensions
@@ -214,6 +224,8 @@
 		post      : Undefined
 	}
 
+	@property onFailCallback      = Undefined
+
 	@constructor options={}
 		options :: {v,k| self options [k] = v }
 	@end
@@ -226,12 +238,15 @@
 	| request again.
 		var get_url    = options prefix + url
 		future         = transport get (get_url)
+		if onFailCallback
+			future onFail (onFailCallback)
+		end
 		future process ( _processHTTPResponse )
 		future onRefresh {f| return get (url, f) }
 		return future
 	@end
 
-	@method post url, body, future=Undefined
+	@method post url, body="", future=Undefined
 	| Invokes a 'POST' to the give url (prefixed by the optional 'prefix' set in
 	| this channel options), using the given 'body' as request body, and
 	| returning a 'Future' instance.
@@ -239,16 +254,26 @@
 	| The future is already bound with a 'refresh' callback that will do the
 	| request again.
 		var post_url   = options prefix + url
-		body           = _normalizeBOdy(body)
+		body           = _normalizeBody(body)
 		future         = transport post (post_url, body, future) process ( _processHTTPResponse )
+		if onFailCallback    -> future onFail (onFailCallback)
 		future onRefresh {f| return post (url, body, f) }
 		return future
 	@end
 
+	@method onFail callback
+	| Sets a callback that will be invoked when a future created in this channel
+	| fails. The given 'callback' takes the _reason_, _details_ and _future_ as
+	| argument, where reason and details are application-specific information
+	| (for HTTP, reason is usually a number, detail is the response text)
+		onFailCallback = callback
+	@end
+
+
 	@group HTTP
 	| These are methods that are all specific to the HTTP protocol
 
-		@method _normalizeBody
+		@method _normalizeBody body
 		@as internal
 			if ( typeof(body) != "string" )
 				var new_body = ""
@@ -260,8 +285,8 @@
 			return body or ''
 		@end
 
-		@method _reponseIsJSON repsonse
-			var content_type = reponse getResponseHeader "Content-Type"
+		@method _responseIsJSON repsonse
+			var content_type = response getResponseHeader "Content-Type"
 			if content_type is "text/javascript" or content_type is "text/x-json" or content_type is "application/json"
 				return True
 			else
@@ -274,8 +299,8 @@
 		@end
 
 		@method _processHTTPResponse response
-			if (options forceJSON and options evalJSON ) or (options evalJSON and _reponseIsJSON(response))
-				return _parseJSON ( "(" + reponse responseText + ")" )
+			if (options forceJSON and options evalJSON ) or (options evalJSON and _responseIsJSON(response))
+				return _parseJSON ( "(" + response responseText + ")" )
 			else
 				return response responseText
 			end
@@ -328,32 +353,44 @@
 | communication. This class really acts as a wrapper for platform-specific HTTP
 | communication implementations, taking care of returning 'Futures' instances to
 | be used by the channels.
+|
+| All the futures returned by the HTTPTransport will give the HTTP request object
+| as-is. Particularly, the 'Channels' 
 
 	@shared DEFAULT
 
 	@constructor
 	@end
 
-	@method syncGet url, body=None
+	@method syncGet url, body=None, future=Undefined
 		# TODO: Unify with asyncGet 
 		var request = _createRequest()
 		request open ("GET", url, False)
 		request send (body)
 		var future = new Future ()
-		try
-			if request status == 200 or request status == 302
-				future set (req)
-			else
-				future fail ( Future REASONS FAILURE, request status )
-			end
-		catch error
-			future fail ( Future REASONS EXCEPTION, error )
+		if request status == 200 or request status == 302
+			future set ( request )
+		else
+			future fail ( request status, request responseText )
 		end
+		# NOTE: I disabled this part that propagates exceptions occuring
+		# when setting the future, because I really do not remember the
+		# reason for it. I'm leaving it there just in case it makes sense
+		# at a later point.
+		# ---
+		# try
+		# ...
+		# catch error
+		#    # NOTE: Sometimes the exception here is due to the processing
+		#    # in the request, so we'll probably rather want to
+		#    future fail ( Future REASONS EXCEPTION, error )
+		# end
+		# ---
 		return future
 	@end
 
 	@method asyncGet url, body=None
-		var future   = new Future ()
+		var future   = new Future () 
 		var request  = _createRequest ()
 		var response = _processRequest (request,{
 			method       : 'GET'
@@ -373,7 +410,7 @@
 		var future = new Future ()
 		try
 			if request status == 200 or request status == 302
-				future set (req)
+				future set ( request )
 			else
 				future fail ( Future REASONS FAILURE, request status )
 			end
@@ -440,6 +477,7 @@
 	|    request as argument
 	| - 'failure', the callback that will be invoked on failure, with the
 	|    request argument
+	|
 		var on_request_complete = {state|
 			if request readyState == 4
 				if request status >= 200 and request status < 300
