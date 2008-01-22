@@ -54,7 +54,7 @@ $(DIR_DIST):
 	mkdir -p $@
 
 %.js: %.sjs
-	$(SUGAR) -cljavascript $< > $@
+	$(SUGAR) -LTests/lib/js -LSources -cljavascript $< > $@
 
 %.html: %.paml
 	pamela $< > $@
