@@ -34,19 +34,9 @@ body pre {
 	padding: 5px;
 }
 
-.failed {
-	background: #99661;
-	color: #f65b06;
-}
-
-li.failed {
-	list-style-image: url("lib/icon-failure.png");
-}
-
-.succeeded {
-	color: #32d071;
-}
-
-li.succeeded {
-	list-style-image: url("lib/icon-success.png");
+.title {
+	margin-top: 2em;
+	margin-bottom: 5em;
+	color: black;
+	font-size: 1.2em;
 }

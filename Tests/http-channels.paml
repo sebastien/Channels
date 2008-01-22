@@ -1,19 +1,19 @@
 <html
 	<head
 		<title:HTTP Channels test
-		<link(rel=stylesheet,media=screen,type=text/css,href=lib/css/screen.css)
-		<link(rel=stylesheet,media=screen,type=text/css,href=lib/css/insulin.css)
-		<script(type=text/javascript,src=lib/js/jquery-1.2.1.js)
-		<script(type=text/javascript,src=lib/js/html-1.1.js)
-		<script(type=text/javascript,src=lib/js/extend+sugar.js)
-		<script(type=text/javascript,src=lib/js/insulin.sjs)
-		<script(type=text/javascript,src=../Sources/channels.sjs)
-		<script(type=text/javascript,src=http-channels.js)
+		<link(rel=stylesheet,media=screen,type=text/css,href=css/screen.css)
+		<link(rel=stylesheet,media=screen,type=text/css,href=css/insulin.css)
+		<script(type=text/javascript,src=js/jquery-1.2.1.js)
+		<script(type=text/javascript,src=js/html-1.1.js)
+		<script(type=text/javascript,src=js/extend+sugar.js)
+		<script(type=text/javascript,src=sjs/insulin.sjs)
+		<script(type=text/javascript,src=sjs/channels.js)
+		<script(type=text/javascript,src=http-channels.sjs)
 
 	<body
 		<div.title
 			<h1:Channels - HTTP Channels
-			<h2:Core test (12-Nov-2007)
+			<h2:Core test (22-Jan-2007)
 
 		<h2:About
 		<div
@@ -23,9 +23,7 @@
 
 		<table.TestResults
 			<tr
-				<th:Test
-				<th:Details
-				<th:Time
+				<td(colspan=3,style=display:none)
 
 		<h2:Description
 		<div
