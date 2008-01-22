@@ -1017,6 +1017,7 @@ insulin.TestRunner=Extend.Class({
 		var test_ui=insulin.getTestUI(__this__.testID);
 		__this__.testCase = new insulin.TestCase(test_ui, testCaseName);
 		__this__.findTests()
+		return __this__
 	},
 	methods:{
 		addTest:function(newTest){
