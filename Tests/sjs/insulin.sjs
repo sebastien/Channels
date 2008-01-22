@@ -1,5 +1,5 @@
 @module insulin
-@version 0.8.0 (12-Nov-2007)
+@version 0.8.1 (22-Jan-2008)
 @target JavaScript
 # -----------------------------------------------------------------------------
 # Project           :   Insulin - A testing framework for Sugar
@@ -9,7 +9,7 @@
 #                       Sebastien Pierre                  <sebastien@akoha.org>
 # -----------------------------------------------------------------------------
 # Creation date     :   29-Aug-2007
-# Last modification :   14-Nov-2007
+# Last modification :   22-Jan-2008
 # -----------------------------------------------------------------------------
 
 # TODO:  Setup semantics should be global setup once, not every call
@@ -87,6 +87,17 @@
 
 @function sameKeys value, expected
 | Succeeds if both dicts/objects have the same keys
+	if value length == expected length
+		var result = True
+		value :: {v,k| if expected [k] is Undefined -> result = False }
+		return result
+	else
+		return False
+	end
+@end
+
+@function sameDict value, expected
+| Succeeds if both dicts/objects have the same keys and values
 	if value length == expected length
 		var result = True
 		value :: {v,k| if expected [k] != v -> result = False }
