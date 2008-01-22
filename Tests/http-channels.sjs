@@ -1,13 +1,18 @@
 # Channels test case
 @import UnitTest from insulin
 
-@class ChannelsTest: UnitTest
+@class SynchronousChannels: UnitTest
 
-	@method testSyncChannel
-		var channel = new channels SyncChannel ()
-		var future  = channel get ("http-channel.json")
-		future onFail ( fail )
-		# TODO: Handle success
+	@method testSynchronousGet
+		
+	@end
+
+	@method testSynchronousPost
+		
+	@end
+
+	@method testRequestsAtomicity
+		
 	@end
 
 @end

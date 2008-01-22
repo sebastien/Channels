@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.7.1 (22-Jan-2008)
+@version 0.7.2 (22-Jan-2008)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
