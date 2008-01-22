@@ -1,1 +1,1 @@
-Sources/channels.sjs
+../../../Sources/channels.sjs
