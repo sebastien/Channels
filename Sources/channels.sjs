@@ -1,9 +1,25 @@
+# -----------------------------------------------------------------------------
+# Project   : Channels
+# -----------------------------------------------------------------------------
+# Author    : Sebastien Pierre                               <sebastien@ivy.fr>
+# License   : Revised BSD License
+# -----------------------------------------------------------------------------
+# Creation  : 10-Aug-2006
+# Last mod  : 22-Jan-2008
+# -----------------------------------------------------------------------------
+
 @module  channels
-@version 0.7.0 (12-Nov-2007)
+@version 0.7.1 (22-Jan-2008)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
 | well known from some concurrent programming languages and frameworks.
+
+# -----------------------------------------------------------------------------
+#
+# Future Class
+#
+# -----------------------------------------------------------------------------
 
 @class Future
 | A Future represents the promise of a future value returned by an invocation
@@ -28,9 +44,10 @@
 	@property _onSet:<[]>   = []
 	@property _onFail:<[]>  = []
 	@property _onRefresh:<Function>
-	@property state         = STATES WAITING
+	@property state
 
 	@constructor
+		state = STATES WAITING
 	@end
 
 	@method set value
@@ -106,7 +123,7 @@
 	|
 	| >    future onFail {r,d,f| print ("Future", f, "failed: reason is ", r, ", ", d)}
 		#assert callback, "Callback is required"
-		onFailure push (callback)
+		_onFail push (callback)
 		if isSet() -> callback (_value, self)
 		return self
 	@end
@@ -168,15 +185,21 @@
 		|
 		| It is a good idea to use processors along with the 'refresh' option,
 		| so that you can easily set up a chain of processing the future value.
-			#assert processor
-			_processors push (processor)
-			if isSet() -> _value = processor(_value)
+			#assert callback
+			_processors push (callback)
+			if isSet() -> _value = callback(_value)
 			return self
 		@end
 
 	@end
 
 @end
+
+# -----------------------------------------------------------------------------
+#
+# Channel Class
+#
+# -----------------------------------------------------------------------------
 
 @class Channel
 
@@ -185,6 +208,7 @@
 		evalJSON  : True
 		forceJSON : True
 	}
+
 	@property transport = {
 		get       : Undefined
 		post      : Undefined
@@ -201,7 +225,8 @@
 	| The future is already bound with a 'refresh' callback that will do the
 	| request again.
 		var get_url    = options prefix + url
-		future         = transport get (get_url, future) process ( _processValue )
+		future         = transport get (get_url)
+		future process ( _processHTTPResponse )
 		future onRefresh {f| return get (url, f) }
 		return future
 	@end
@@ -263,21 +288,39 @@
 
 @end
 
+# -----------------------------------------------------------------------------
+#
+# Synchronous Channel Class
+#
+# -----------------------------------------------------------------------------
+
 @class SyncChannel: Channel
 	@constructor options
 		super (options)
-		_transport get  = HTTPTransport DEFAULT syncGet
-		_transport post = HTTPTransport DEFAULT syncPost
+		transport get  = HTTPTransport DEFAULT getMethod "syncGet"
+		transport post = HTTPTransport DEFAULT getMethod "syncPost"
 	@end
 @end
+
+# -----------------------------------------------------------------------------
+#
+# Asynchronous Channel Class
+#
+# -----------------------------------------------------------------------------
 
 @class AsyncChannel: Channel
 	@constructor options
 		super (options)
-		_transport get  = HTTPTransport DEFAULT asyncGet
-		_transport post = HTTPTransport DEFAULT asyncPost
+		transport get  = HTTPTransport DEFAULT getMethod "asyncGet"
+		transport post = HTTPTransport DEFAULT getMethod "asyncPost"
 	@end
 @end
+
+# -----------------------------------------------------------------------------
+#
+# HTTP Transport Class
+#
+# -----------------------------------------------------------------------------
 
 @class HTTPTransport
 | The 'HTTPTransport' is the low-level class used by channels to do HTTP
@@ -305,6 +348,7 @@
 		catch error
 			future fail ( Future REASONS EXCEPTION, error )
 		end
+		return future
 	@end
 
 	@method asyncGet url, body=None
@@ -335,6 +379,7 @@
 		catch error
 			future fail ( Future REASONS EXCEPTION, error )
 		end
+		return future
 	@end
 
 	@method asyncPost url, body=""
@@ -406,7 +451,7 @@
 		request onreadystatechange = on_request_complete
 		options headers :: {v,k| request setRequestHeader (k,v) }
 		request open (options method or "GET", options url, options asynchronous or True)
-		request send (options body or '')
+		return request send (options body or '')
 	@end
 
 @end

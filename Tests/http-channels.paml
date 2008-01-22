@@ -2,14 +2,18 @@
 	<head
 		<title:HTTP Channels test
 		<link(rel=stylesheet,media=screen,type=text/css,href=lib/css/screen.css)
+		<link(rel=stylesheet,media=screen,type=text/css,href=lib/css/insulin.css)
+		<script(type=text/javascript,src=lib/js/jquery-1.2.1.js)
 		<script(type=text/javascript,src=lib/js/html-1.1.js)
 		<script(type=text/javascript,src=lib/js/extend+sugar.js)
-		<script(type=text/javascript,src=lib/js/insulin.js)
-		<script(type=text/javascript,src=../Distribution/channels.js)
+		<script(type=text/javascript,src=lib/js/insulin.sjs)
+		<script(type=text/javascript,src=../Sources/channels.sjs)
+		<script(type=text/javascript,src=http-channels.js)
 
 	<body
-		<h1:Channels - HTTP Channels
-		<h2:Core test (12-Nov-2007)
+		<div.title
+			<h1:Channels - HTTP Channels
+			<h2:Core test (12-Nov-2007)
 
 		<h2:About
 		<div
@@ -17,9 +21,11 @@
 
 		<h2:Results
 
-		<div
-			<div#tests.testList
-			<script(src=test-channels.sjs)
+		<table.TestResults
+			<tr
+				<th:Test
+				<th:Details
+				<th:Time
 
 		<h2:Description
 		<div

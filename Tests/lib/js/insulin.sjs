@@ -593,7 +593,8 @@
 #
 # -----------------------------------------------------------------------------
 
-@class JsUnitException 
+@class JsUnitException
+
 	@property isJsUnitException
 	@property comment
 	@property jsUnitMessage
@@ -1006,94 +1007,97 @@
 
 @class HtmlTestUI: TestUI
 | overrides TestUI display messages in a webpage
-	
+
+	@property selector
+	@property currentTestCase = 0
+	@property currentTestUnit = 0
+	@property currentTest     = 0
+
+	@constructor selector=".TestResults"
+		super()
+		self selector = selector
+	@end
+
+	@method _append node
+		$(selector) append (node)
+	@end
+
 	@method info message
-		setTimeout( { 
-			$("#log") append ( 
-				html div({class:"info"}
-					message
-				)
-			)
-		}, 0)
+		_append ( html div({class:"insulin-info"}, message) )
 	@end
 
 	@method warn message
-		setTimeout( {
-			$("#log") append (
-				html div({class:"warning"}
-				 message
-				)
-			)
-		}, 0)
+		_append ( html div({class:"insulin-warning"}, message) )
 	@end
 
 	@method error message
-		setTimeout({
-			$("#log") append ( 
-				html div({class:"error"}
-					message
-				)
-			)
-		}, 0)
+		_append ( html div({class:"insulin-error"}, message) )
 	@end
-	
+
 	@method separator
-		setTimeout({$("#log") append( html hr() )}, 0)
 	@end
 
 	@method onTestStart name
-		info ( html h3( "Starting Test: " + name) )
+		var test_id   = currentTest
+		var test_name = name
+		var test_row  = html tr (
+			{
+				id    : "test_" + test_id
+				class : "test test-running"
+			}
+			html td  ({class:"test-id"},"#" + test_id )
+			html td  (
+				{class:"test-name"}
+				"" + test_name
+				html div (
+					html ul {class:"assertions empty"}
+				)
+			)
+			html td({class:"test-time"}, "running...")
+		)
+		_append (test_row)
 	@end
 
 	@method onTestEnd name, success, reason
+		var test_row = $("#test_" + currentTest)
+		$ (test_row) removeClass "test-running"
 		if success
-			info( "PASS [" + reason + "ms]"  )
+			$(test_row) addClass "test-succeeded"
+			$(".test-time", test_row) html ( "ms" )
 		else
-			error( html pre ("FAIL: " + reason ) )
+			$(test_row) addClass "test-failed"
+			$(".test-time", test_row) html ( reason )
 		end
-		separator()
+		_append ( test_row )
+		currentTest += 1
 	@end
 
 	@method onUnitTestStart name
-		info ( html h3("Unit test: " + name) )
+		var test_row = html tr (
+			html td ({class:"test-unit", colspan:3}, name)
+		)
 	@end
 
 	@method onUnitTestEnd name, passed, failed
-		var message = "Unit test: " + name + ": " + passed + " passed, " + failed + " failed"
-		if failed
-			error( message )
-		else
-			info( message )
-		end
-		separator()
+		var message  = "Unit test: " + name + ": " + passed + " passed " + failed + " failed"
+		var test_row = html tr (
+			html td ({class:"test-unit-summary", colspan:3}, message)
+		)
 	@end
 
 	@method onTestCaseStart name
-		info ( "Test case: " + name )
+		var test_row = html tr (
+			html td ({class:"test-case", colspan:3}, name)
+		)
 	@end
 
 	@method onTestCaseEnd name, passed, failed
 		var message  = "Test case: " + name + ": " + passed + " passed " + failed + " failed"
-		if failed
-			error( message )
-			$("#TestResult") css({
-				background : "red"
-				color : "white"
-			}) html(
-				message
-			)	
-		else
-			info( message )
-			$("#TestResult") css({
-				background : "green"
-				color : "white"
-			}) html(
-				message
-			)
-		end
-		separator()
-
+		var test_row = html tr (
+			html td ({class:"test-case-summary", colspan:3}, message)
+		)
 	@end
+
 @end
 
 # -----------------------------------------------------------------------------
@@ -1112,6 +1116,7 @@
 		var test_ui = getTestUI( self testID )
 		testCase = new TestCase( test_ui, testCaseName )
 		findTests()
+		return self
 	@end
 	
 	@method addTest newTest
