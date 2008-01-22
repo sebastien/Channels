@@ -23,24 +23,24 @@ all: doc dist test
 	@echo
 
 doc: $(DOC_API) $(DOC_HTML)
-	@echo "Documentation generated:"
+	@echo "> Documentation generated:"
 	@echo "  $(DOC_API)"
 	@echo "  $(DOC_HTML)"
 	@echo
 
 dist: $(PRODUCT_JS) doc $(DIR_DIST)
-	@echo "Distribution generated:"
+	@echo "> Distribution generated:"
 	@echo "  $(PRODUCT_JS)"
 	@echo
 
 test: $(TEST_HTML) $(TEST_JS)
-	@echo "Tests generated:"
+	@echo "> Tests generated:"
 	@echo "  $(TEST_HTML)"
 	@echo "  $(TEST_JS)"
 	@echo
 
 clean:
-	rm $(DIR_DIST) $(DOC_HTML)
+	rm -rf $(DIR_DIST) $(DOC_HTML) $(TEST_JS) $(TEST_HTML)
 
 # Specific rules _____________________________________________________________
 
@@ -54,7 +54,7 @@ $(DIR_DIST):
 	mkdir -p $@
 
 %.js: %.sjs
-	$(SUGAR) -LTests/lib/js -LSources -cljavascript $< > $@
+	$(SUGAR) -LTests/lib/sjs -LSources -cljavascript $< > $@
 
 %.html: %.paml
 	pamela $< > $@
