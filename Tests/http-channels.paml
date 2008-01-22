@@ -7,7 +7,7 @@
 		<script(type=text/javascript,src=js/html-1.1.js)
 		<script(type=text/javascript,src=js/extend+sugar.js)
 		<script(type=text/javascript,src=sjs/insulin.sjs)
-		<script(type=text/javascript,src=sjs/channels.js)
+		<script(type=text/javascript,src=sjs/channels.sjs)
 		<script(type=text/javascript,src=http-channels.sjs)
 
 	<body
