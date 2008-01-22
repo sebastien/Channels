@@ -246,6 +246,7 @@
 	@end
 
 	@group HTTP
+	| These are methods that are all specific to the HTTP protocol
 
 		@method _normalizeBody
 		@as internal
