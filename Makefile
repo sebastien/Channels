@@ -7,10 +7,6 @@ DIR_SOURCES=Sources
 DIR_DIST=Distribution
 SOURCES_SJS=$(wildcard $(DIR_SOURCES)/*.sjs)
 PRODUCT_JS=$(SOURCES_SJS:$(DIR_SOURCES)/%.sjs=$(DIR_DIST)/%.js)
-TEST_SJS=$(wildcard Tests/*.sjs Tests/lib/js/*.sjs)
-TEST_PAML=$(wildcard Tests/*.paml)
-TEST_JS=$(TEST_SJS:%.sjs=%.js)
-TEST_HTML=$(TEST_PAML:%.paml=%.html)
 DOC_API=$(DIR_DIST)/$(PROJECT)-api.html
 DOC_TEXT=$(shell echo *.txt)
 DOC_HTML=$(DOC_TEXT:.txt=.html)
@@ -33,14 +29,8 @@ dist: $(PRODUCT_JS) doc $(DIR_DIST)
 	@echo "  $(PRODUCT_JS)"
 	@echo
 
-test: $(TEST_HTML) $(TEST_JS)
-	@echo "> Tests generated:"
-	@echo "  $(TEST_HTML)"
-	@echo "  $(TEST_JS)"
-	@echo
-
 clean:
-	rm -rf $(DIR_DIST) $(DOC_HTML) $(TEST_JS) $(TEST_HTML)
+	rm -rf $(DIR_DIST) $(DOC_HTML)
 
 # Specific rules _____________________________________________________________
 
