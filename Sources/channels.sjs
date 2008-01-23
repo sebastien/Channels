@@ -15,6 +15,8 @@
 | communication easier by providing the 'Future' and 'Channel' abstractions
 | well known from some concurrent programming languages and frameworks.
 
+# TODO: Abstract Channels and Futures from HTTP
+#
 # -----------------------------------------------------------------------------
 #
 # Future Class
@@ -212,6 +214,22 @@
 # -----------------------------------------------------------------------------
 
 @class Channel
+| Channels are specific objects that allow communication operations to happen
+| in a shared context. The modus operandi is as follows:
+|
+| - You initialize a channel with specific properties (for HTTP, this would
+|   be a prefix for the URLs, wether you want to evaluate the JSON that may
+|   be contained in responses, etc).
+| - You send something into the channel (typically an HTTP request)
+| - You get a 'Future' as a promise for a future result.
+| - When the result arrives, the future is set with the resulting value.
+|
+| Synchronous channels will typically set the result directly, while for
+| asynchronous channels, the result will only be available later.
+|
+| NOTE: The current implementation of 'Channels' is very much HTTP-oriented. At
+| a later point, the Channels class will be more generic, and will provide
+| separate specific aspects for the HTTP protocol.
 
 	@property options = {
 		prefix    : ""
@@ -224,20 +242,20 @@
 		post      : Undefined
 	}
 
-	@property onFailCallback      = Undefined
+	@property failureCallbacks = []
 
 	@constructor options={}
 		options :: {v,k| self options [k] = v }
 	@end
 
-	@method get url, future=Undefined
+	@method get url, body="", future=Undefined
 	| Invokes a 'GET' to the given url (prefixed by the optional 'prefix' set in
 	| this channel options) and returns a 'Future'.
 	|
 	| The future is already bound with a 'refresh' callback that will do the
 	| request again.
 		var get_url    = options prefix + url
-		future         = transport get (get_url)
+		future         = transport get (get_url, body, future or _createFuture())
 		if onFailCallback
 			future onFail (onFailCallback)
 		end
@@ -255,8 +273,7 @@
 	| request again.
 		var post_url   = options prefix + url
 		body           = _normalizeBody(body)
-		future         = transport post (post_url, body, future) process ( _processHTTPResponse )
-		if onFailCallback    -> future onFail (onFailCallback)
+		future         = transport post (post_url, body, future or _createFuture()) process ( _processHTTPResponse )
 		future onRefresh {f| return post (url, body, f) }
 		return future
 	@end
@@ -266,9 +283,28 @@
 	| fails. The given 'callback' takes the _reason_, _details_ and _future_ as
 	| argument, where reason and details are application-specific information
 	| (for HTTP, reason is usually a number, detail is the response text)
-		onFailCallback = callback
+		failureCallbacks push (callback)
 	@end
 
+	@group Futures
+	| These methods are related to the creation and lifecycle of futures used in
+	| this channel.
+
+		@method _createFuture
+		| Returns a new future, properly initialized for this channel
+			var future = new Future ()
+			future onFail ( _futureHasFailed )
+			return future
+		@end
+
+		@method _futureHasFailed reason, details, future
+		| Invoked when a future has failed. This invokes every callback registered
+		| in the 'failureCallbacks' list (which were previously registered using the
+		| 'onFail' method).
+			failureCallbacks :: {c|c(reason,details,future)}
+		@end
+
+	@end
 
 	@group HTTP
 	| These are methods that are all specific to the HTTP protocol
@@ -321,6 +357,8 @@
 # -----------------------------------------------------------------------------
 
 @class SyncChannel: Channel
+| The SyncChannel will use the synchronous methods from the HTTP transport
+| object to do the communication.
 	@constructor options
 		super (options)
 		transport get  = HTTPTransport DEFAULT getMethod "syncGet"
@@ -335,6 +373,8 @@
 # -----------------------------------------------------------------------------
 
 @class AsyncChannel: Channel
+| The AsyncChannel will use the asynchronous methods from the HTTP transport
+| object to do the communication.
 	@constructor options
 		super (options)
 		transport get  = HTTPTransport DEFAULT getMethod "asyncGet"
@@ -362,66 +402,45 @@
 	@constructor
 	@end
 
-	@method syncGet url, body=None, future=Undefined
-		# TODO: Unify with asyncGet 
-		var request = _createRequest()
-		request open ("GET", url, False)
-		request send (body)
-		var future = new Future ()
-		if request status == 200 or request status == 302
-			future set ( request )
-		else
-			future fail ( request status, request responseText )
-		end
-		# NOTE: I disabled this part that propagates exceptions occuring
-		# when setting the future, because I really do not remember the
-		# reason for it. I'm leaving it there just in case it makes sense
-		# at a later point.
-		# ---
-		# try
-		# ...
-		# catch error
-		#    # NOTE: Sometimes the exception here is due to the processing
-		#    # in the request, so we'll probably rather want to
-		#    future fail ( Future REASONS EXCEPTION, error )
-		# end
-		# ---
+	@method syncGet url, body=None, future=(new Future())
+		var request  = _createRequest ()
+		var response = _processRequest (request,{
+			method       : 'GET'
+			body         : body
+			url          : url
+			asynchronous : False
+			success      : {v| future set  (v) }
+			failure      : {v| future fail (v status, v responseText) }
+		})
 		return future
 	@end
 
-	@method asyncGet url, body=None
-		var future   = new Future () 
+	@method syncPost url, body=None, future=(new Future())
+		var request  = _createRequest ()
+		var response = _processRequest (request,{
+			method       : 'POST'
+			body         : body
+			url          : url
+			asynchronous : False
+			success      : {v| future set  (v) }
+			failure      : {v| future fail (v status, v responseText) }
+		})
+		return future
+	@end
+
+	@method asyncGet url, future=(new Future())
 		var request  = _createRequest ()
 		var response = _processRequest (request,{
 			method       : 'GET'
 			url          : url
 			asynchronous : True
 			success      : {v| future set  (v) }
-			failure      : {v| future fail (Future REASONS FAILURE) }
+			failure      : {v| future fail (v status, v responseText) }
 		})
 		return future
 	@end
 
-	@method syncPost url, body=None
-		# TODO: Unify with asyncPost
-		var request = _createRequest()
-		request open ("POST", url, False)
-		request send (body)
-		var future = new Future ()
-		try
-			if request status == 200 or request status == 302
-				future set ( request )
-			else
-				future fail ( Future REASONS FAILURE, request status )
-			end
-		catch error
-			future fail ( Future REASONS EXCEPTION, error )
-		end
-		return future
-	@end
-
-	@method asyncPost url, body=""
-		var future   = new Future ()
+	@method asyncPost url, body="", future=(new Future())
 		var request  = _createRequest ()
 		var response = _processRequest (request,{
 			method       : 'POST'
@@ -429,20 +448,7 @@
 			url          : url
 			asynchronous : True
 			success      : {v| future set  (v) }
-			failure      : {v| future fail (Future REASONS FAILURE) }
-		})
-		return future
-	@end
-
-	@method asyncGet url, body=None
-		var future   = new Future ()
-		var request  = _createRequest ()
-		var response = _processRequest (request,{
-			method       : 'GET'
-			url          : url
-			asynchronous : True
-			success      : {v| future set  (v) }
-			failure      : {v| future fail (Future REASONS FAILURE) }
+			failure      : {v| future fail (v status, v responseText) }
 		})
 		return future
 	@end
