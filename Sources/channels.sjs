@@ -5,7 +5,7 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 22-Jan-2008
+# Last mod  : 23-Jan-2008
 # -----------------------------------------------------------------------------
 
 @module  channels
@@ -87,7 +87,7 @@
 		state = STATES FAILED
 		_errorReason  = reason
 		_errorDetails = details
-		_onFail :: {c| c(reason,details,future) }
+		_onFail :: {c| c(reason,details,self) }
 		return self
 	@end
 
@@ -256,9 +256,6 @@
 	| request again.
 		var get_url    = options prefix + url
 		future         = transport get (get_url, body, future or _createFuture())
-		if onFailCallback
-			future onFail (onFailCallback)
-		end
 		future process ( _processHTTPResponse )
 		future onRefresh {f| return get (url, f) }
 		return future
@@ -404,6 +401,7 @@
 
 	@method syncGet url, body=None, future=(new Future())
 		var request  = _createRequest ()
+		print ("SYNCHRONOUS GET")
 		var response = _processRequest (request,{
 			method       : 'GET'
 			body         : body
@@ -475,7 +473,7 @@
 	|
 	| - 'method', the HTTP method ('GET', 'POST', in uppercase)
 	| - 'url', the requested url
-	| - 'asynchronous' (default 'True'), to indicate wether the request should
+	| - 'asynchronous' (default 'False'), to indicate wether the request should
 	|    be made in synchronous or asynchronous mode
 	| - 'body' (default is '""') the optional request body
 	| - 'headers' is a dictionary of headers to add to the request
@@ -485,6 +483,7 @@
 	|    request argument
 	|
 		var on_request_complete = {state|
+			print ("REQUEST STATE", state, request readyState)
 			if request readyState == 4
 				if request status >= 200 and request status < 300
 					options success (request)
@@ -495,7 +494,7 @@
 		}
 		request onreadystatechange = on_request_complete
 		options headers :: {v,k| request setRequestHeader (k,v) }
-		request open (options method or "GET", options url, options asynchronous or True)
+		request open (options method or "GET", options url, options asynchronous or False)
 		return request send (options body or '')
 	@end
 

@@ -103,7 +103,7 @@ channels.Future=Extend.Class({
 			__this__._errorReason = reason;
 			__this__._errorDetails = details;
 			Extend.iterate(__this__._onFail, _meta_(function(c){
-				c(reason, details, future)
+				c(reason, details, __this__)
 			},	{
 					arity:1,
 					arguments:[{'name': 'c'}]
@@ -307,10 +307,6 @@ channels.Channel=Extend.Class({
 			future = future === undefined ? undefined : future
 			var get_url=(__this__.options.prefix + url);
 			future = __this__.transport.get(get_url, body, (future || __this__._createFuture()));
-			if ( onFailCallback )
-			{
-				future.onFail(onFailCallback)
-			}
 			future.process(__this__.getMethod('_processHTTPResponse') )
 			future.onRefresh(_meta_(function(f){
 				return __this__.get(url, f)
@@ -498,6 +494,7 @@ channels.HTTPTransport=Extend.Class({
 			body = body === undefined ? null : body
 			future = future === undefined ? new channels.Future() : future
 			var request=__this__._createRequest();
+			Extend.print("SYNCHRONOUS GET")
 			var response=__this__._processRequest(request, {"method":"GET", "body":body, "url":url, "asynchronous":false, "success":_meta_(function(v){
 				future.set(v)
 			},	{
@@ -597,7 +594,7 @@ channels.HTTPTransport=Extend.Class({
 		// 
 		// - 'method', the HTTP method ('GET', 'POST', in uppercase)
 		// - 'url', the requested url
-		// - 'asynchronous' (default 'True'), to indicate wether the request should
+		// - 'asynchronous' (default 'False'), to indicate wether the request should
 		// be made in synchronous or asynchronous mode
 		// - 'body' (default is '""') the optional request body
 		// - 'headers' is a dictionary of headers to add to the request
@@ -609,6 +606,7 @@ channels.HTTPTransport=Extend.Class({
 		_processRequest:_meta_(function(request, options){
 			var __this__=this
 			var on_request_complete=_meta_(function(state){
+				Extend.print("REQUEST STATE", state, request.readyState)
 				if ( (request.readyState == 4) )
 				{
 					if ( ((request.status >= 200) && (request.status < 300)) )
@@ -631,7 +629,7 @@ channels.HTTPTransport=Extend.Class({
 					arity:2,
 					arguments:[{'name': 'v'}, {'name': 'k'}]
 				}), __this__)
-			request.open((options.method || "GET"), options.url, (options.asynchronous || true))
+			request.open((options.method || "GET"), options.url, (options.asynchronous || false))
 			return request.send((options.body || ""))
 		},	{
 				arity:2,
