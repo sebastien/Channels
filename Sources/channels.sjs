@@ -113,9 +113,15 @@
 	|
 	| >    future onSet {v,f| print ("Received value", v, "from future", f)}
 		#assert callback, "Callback is required"
-		onSet push (callback)
+		_onSet push (callback)
 		if isSet() -> callback (_value, self)
 		return self
+	@end
+
+	@method onSucceed callback
+	| This is just an alias for 'onSet', as if you use 'onFail' often,
+	| you'll be tempted to use 'onSucceed' as well.
+		return onSet (callback)
 	@end
 
 	@method onFail callback
@@ -425,10 +431,11 @@
 		return future
 	@end
 
-	@method asyncGet url, future=(new Future())
+	@method asyncGet url, body=None, future=(new Future())
 		var request  = _createRequest ()
 		var response = _processRequest (request,{
 			method       : 'GET'
+			body         : body
 			url          : url
 			asynchronous : True
 			success      : {v| future set  (v) }
