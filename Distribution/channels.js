@@ -494,7 +494,6 @@ channels.HTTPTransport=Extend.Class({
 			body = body === undefined ? null : body
 			future = future === undefined ? new channels.Future() : future
 			var request=__this__._createRequest();
-			Extend.print("SYNCHRONOUS GET")
 			var response=__this__._processRequest(request, {"method":"GET", "body":body, "url":url, "asynchronous":false, "success":_meta_(function(v){
 				future.set(v)
 			},	{
@@ -606,7 +605,6 @@ channels.HTTPTransport=Extend.Class({
 		_processRequest:_meta_(function(request, options){
 			var __this__=this
 			var on_request_complete=_meta_(function(state){
-				Extend.print("REQUEST STATE", state, request.readyState)
 				if ( (request.readyState == 4) )
 				{
 					if ( ((request.status >= 200) && (request.status < 300)) )

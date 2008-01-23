@@ -401,7 +401,6 @@
 
 	@method syncGet url, body=None, future=(new Future())
 		var request  = _createRequest ()
-		print ("SYNCHRONOUS GET")
 		var response = _processRequest (request,{
 			method       : 'GET'
 			body         : body
@@ -483,7 +482,6 @@
 	|    request argument
 	|
 		var on_request_complete = {state|
-			print ("REQUEST STATE", state, request readyState)
 			if request readyState == 4
 				if request status >= 200 and request status < 300
 					options success (request)
