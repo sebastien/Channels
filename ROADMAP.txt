@@ -2,7 +2,7 @@
 
 Version 1.1::
 
-	[ ] Abstract channels to different protocols
+	[ ] Abstract channels to different protocols (not only HTTP)
 	[ ] Add support for Python
 
 Version 1.0::
