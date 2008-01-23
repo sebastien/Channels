@@ -51,7 +51,6 @@
 		var counter = 0
 		var c       = new SyncChannel ()
 		c onFail {
-			print "I failed"
 			counter += 1
 		}
 		var f = c get "test/404"
