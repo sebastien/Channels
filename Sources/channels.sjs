@@ -490,7 +490,9 @@
 	| - 'failure', the callback that will be invoked on failure, with the
 	|    request argument
 	|
-		var on_request_complete = {state|
+		var callback_was_executed = False
+		var on_request_complete   = {state|
+			callback_was_executed = True
 			if request readyState == 4
 				if request status >= 200 and request status < 300
 					options success (request)
@@ -502,7 +504,13 @@
 		request onreadystatechange = on_request_complete
 		options headers :: {v,k| request setRequestHeader (k,v) }
 		request open (options method or "GET", options url, options asynchronous or False)
-		return request send (options body or '')
+		request send (options body or '')
+		# On FireFox, a synchronous request HTTP 'onreadystatechange' callback is
+		# not executed, which means that we have to take care of it manually.
+		# NOTE: When FireBug is enabled, this doesn't happen.. go figure !
+		if not (options asynchronous) and not callback_was_executed
+			on_request_complete ()
+		end
 	@end
 
 @end
