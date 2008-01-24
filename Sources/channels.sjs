@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 23-Jan-2008
+# Last mod  : 24-Jan-2008
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.7.2 (22-Jan-2008)
+@version 0.7.2 (24-Jan-2008)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -334,7 +334,9 @@
 		@end
 
 		@method _parseJSON json
-			return eval(json)
+			# NOTE: In Safari, we cannot evalute from the window namespace, so we have
+			# to do it from a closure
+			return {return eval(json)}()
 		@end
 
 		@method _processHTTPResponse response
