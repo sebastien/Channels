@@ -240,7 +240,7 @@
 	@property options = {
 		prefix    : ""
 		evalJSON  : True
-		forceJSON : True
+		forceJSON : False
 	}
 
 	@property transport = {
@@ -262,7 +262,6 @@
 	| request again.
 		var get_url    = options prefix + url
 		future         = transport get (get_url, body, future or _createFuture())
-		future process ( _processHTTPResponse )
 		future onRefresh {f| return get (url, f) }
 		return future
 	@end
@@ -276,7 +275,7 @@
 	| request again.
 		var post_url   = options prefix + url
 		body           = _normalizeBody(body)
-		future         = transport post (post_url, body, future or _createFuture()) process ( _processHTTPResponse )
+		future         = transport post (post_url, body, future or _createFuture())
 		future onRefresh {f| return post (url, body, f) }
 		return future
 	@end
@@ -297,6 +296,7 @@
 		| Returns a new future, properly initialized for this channel
 			var future = new Future ()
 			future onFail ( _futureHasFailed )
+			future process ( _processHTTPResponse )
 			return future
 		@end
 
@@ -324,7 +324,7 @@
 			return body or ''
 		@end
 
-		@method _responseIsJSON repsonse
+		@method _responseIsJSON response
 			var content_type = response getResponseHeader "Content-Type"
 			if content_type is "text/javascript" or content_type is "text/x-json" or content_type is "application/json"
 				return True
