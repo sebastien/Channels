@@ -530,8 +530,8 @@
 
 
 @function getTestUI testID
-	if typeof(window) != "undefined" and "console" in window and "trace" in console
-		if testID != "undefined" and testID
+	if typeof(window) != "undefined"
+		if typeof(console) != "undefined"
 			return new LoggedFirebugTestUI( testID )
 		else
 			return new HtmlTestUI()
@@ -814,7 +814,6 @@
 		
 		
 		if failed
-			console error( message )
 			$("#TestResult") css({
 				background : "red"
 				color : "white"
@@ -822,7 +821,6 @@
 				message
 			)	
 		else
-			console info( message )
 			$("#TestResult") css({
 				background : "green"
 				color : "white"
