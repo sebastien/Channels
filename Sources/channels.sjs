@@ -502,8 +502,10 @@
 			end
 		}
 		request onreadystatechange = on_request_complete
-		options headers :: {v,k| request setRequestHeader (k,v) }
 		request open (options method or "GET", options url, options asynchronous or False)
+		# On FireFox, headers must be set after request is opened.
+		# <http://developer.mozilla.org/en/docs/XMLHttpRequest>
+		options headers :: {v,k| request setRequestHeader (k,v) }
 		request send (options body or '')
 		# On FireFox, a synchronous request HTTP 'onreadystatechange' callback is
 		# not executed, which means that we have to take care of it manually.
