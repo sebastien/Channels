@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 24-Jan-2008
+# Last mod  : 31-Jan-2008
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.7.2 (24-Jan-2008)
+@version 0.7.2a (31-Jan-2008)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -510,7 +510,7 @@
 		# On FireFox, a synchronous request HTTP 'onreadystatechange' callback is
 		# not executed, which means that we have to take care of it manually.
 		# NOTE: When FireBug is enabled, this doesn't happen.. go figure !
-		if not (options asynchronous) and not callback_was_executed
+		if (not callback_was_executed) and (not (options asynchronous or False))
 			on_request_complete ()
 		end
 	@end
