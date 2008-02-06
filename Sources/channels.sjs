@@ -5,18 +5,19 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 31-Jan-2008
+# Last mod  : 05-Feb-2008
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.7.2a (31-Jan-2008)
+@version 0.7.2b (05-Feb-2008)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
 | well known from some concurrent programming languages and frameworks.
 
 # TODO: Abstract Channels and Futures from HTTP
-#
+# TODO: Refactor _errorReason and _errorDetails into something more useful
+
 # -----------------------------------------------------------------------------
 #
 # Future Class
@@ -114,7 +115,7 @@
 	| >    future onSet {v,f| print ("Received value", v, "from future", f)}
 		#assert callback, "Callback is required"
 		_onSet push (callback)
-		if isSet() -> callback (_value, self)
+		if hasSucceeded () -> callback (_value, self)
 		return self
 	@end
 
@@ -129,10 +130,11 @@
 	| The callback will take the error reason and error details as first two
 	| arguments, and the future as third argument.
 	|
+	| >    # r = reason, d = details, f = future
 	| >    future onFail {r,d,f| print ("Future", f, "failed: reason is ", r, ", ", d)}
 		#assert callback, "Callback is required"
 		_onFail push (callback)
-		if isSet() -> callback (_value, self)
+		if hasFailed () -> callback (_value, self)
 		return self
 	@end
 
@@ -149,7 +151,7 @@
 	@group Extensions
 
 		@method refresh
-		| Refreshing a feature will basically invoke the 'refresh' callback set
+		| Refreshing a future will basically invoke the 'refresh' callback set
 		| with the 'onRefresh' function. Typical use of 'refresh' is to take an
 		| existing future and to bind the function that created the value as
 		| 'refresh', so that getting a "fresher" value can simply be done
@@ -157,22 +159,25 @@
 		|
 		| Example:
 		|
-		| >    var i = 0
-		| >    var f = new Future()
-		| >    var p = { f set (i) ; i += 1 }
-		| >    f onRefresh (p)
-		| >    p()
-		| >    print ("i =", f get())
-		| >    f refresh()
-		| >    print ("i =", f get())
-		| >    f refresh()
-		| >    print ("i =", f get())
+		| >    var c = new channels SyncChannel ()
+		| >    var f = c get "this/url"
+		| >
+		| >    # We bind a refresh function
+		| >    f onRefresh {c get ("this/url", f)}
+		| >    
+		| >    # We bind success callbacks
+		| >    f onSucceed {d|print ("Received:",d}
+		| >    
+		| >    # We should see that the data was received
+		| >    # and if we refresh, we should see the
+		| >    # 'Reveived:...' text again
+		| >    f refresh ()
+		| >    
+		| >    # And we can call refresh multiple times
+		| >    f refresh ()
 		|
-		| Will print
-		|
-		| >    i = 0
-		| >    i = 1
-		| >    i = 2
+		| It's particularly useful to use 'refresh' along with 'process',
+		| especially when you're querying URLs frequently.
 			state = STATED WAITING
 			if _onRefresh -> _onRefresh (self)
 			return self
@@ -261,6 +266,7 @@
 	| The future is already bound with a 'refresh' callback that will do the
 	| request again.
 		var get_url    = options prefix + url
+		body           = _normalizeBody(body)
 		future         = transport get (get_url, body, future or _createFuture())
 		future onRefresh {f| return get (url, f) }
 		return future
