@@ -298,52 +298,38 @@ aimg {
 <body>
 <div
 	class="title"><h1>Channels 0.8</h1><h2>Developer Manual</h2></div><table class='kiwiMeta'><tr><td width='0px' class='name'>Author</td><td width='100%' class='value'>Sebastien Pierre &lt;sebastien@ivy.fr&gt;</td></tr><tr><td width='0px' class='name'>Revision</td><td width='100%' class='value'>12-Nov-2007</td></tr></table>
-<div class="kiwiContent"><div class='content'><p>Extend 2.0 is an evolution of <a href="http://www.ivy.fr/extend/extend-1.0.0.js" class="external">Extend 1.0</a> which implements a flexible class-based OOP layer on top of the JavaScript prototype object model.</p><p>Extend 2.0 allows you to write nice and clean classes in JavaScript, features introspection and class meta-information, is mature and <a href="http://www.ivy.fr/js/extend/test.html" class="external">fully-tested</a>, and used as a base for our wonderful <a href="http://www.ivy.fr/sugar" class="external">Sugar language</a> runtime.</p><div class="section" level="1"><h1 class="heading"><span class="number"><span class="level0">1<span class="lastDot dot">.</span></span></span>The problem</h1><div class="level1"></div></div><div class="section" level="1"><h1 class="heading"><span class="number"><span class="level0">2<span class="lastDot dot">.</span></span></span>Channels API</h1><div class="level1"><p>Extend offers a set of methods that can are available to Extend classes and instances created from Extend classes. These methods range from simple introspection (what is the class of an object, what is this class name, is this an object an instance of this class, etc) to more complex things (safely wrapping a method for callback, listing inherited methods, etc).</p><div class="section" level="2"><h2 class="heading"><span class="number"><span class="level0">2<span class="dot">.</span></span><span class="level1">1<span class="lastDot dot">.</span></span></span>Futures API</h2><div class="level2"><dl><dt> <code>Extend.Class({...})</code></dt><dd><div class='content'>Declares and returns a new class according to the class description given as argument. This description was explained in the previous section.</div></dd><dt> <code>Extend.getClass(name:String)</code></dt><dd><div class='content'>Returns the class with the given absolute name, if any.</div></dd><dt> <code>Extend.getClasses()</code></dt><dd><div class='content'>Returns a dictionary that maps <span class='term'>declared class names</span> to actual class instances. Extend acts like a global namespace where non-anonymous declared classes are registered.</div></dd><dt> <code>Extend.getChildrenOf(aClass)</code></dt><dd><div class='content'>Returns a dictionary that maps <span class='term'>declared class names</span> to actual class instances of classes that inherit from the given class (<code>aClass</code>). This excludes the given class from the result.</div></dd></dl></div></div><div class="section" level="2"><h2 class="heading"><span class="number"><span class="level0">2<span class="dot">.</span></span><span class="level1">2<span class="lastDot dot">.</span></span></span>Channels API</h2><div class="level2"><p>The <span class='term'>object API</span> defines the methods which are available to instances (objects) which were created (instantiated) from a class defined using Extend.</p><dl><dt> <code>isClass()</code></dt><dd><div class='content'>Tells if the given object is class or not. This returns <code>false</code></div></dd><dt> <code>getClass()</code></dt><dd><div class='content'>Returns the class object associated with this instance. You can use the class object to access class operations, class attributes, etc.</div></dd><dt> <code>getMethod(name:String)</code></dt><dd><div class='content'>In JavaScript, if you give a method as a callback by simply doing <code>object.method</code>, then you may have problems when the caller changes the <code>this</code> argument of the method. Using <code>getMethod</code> will ensure that the this is preserved. It's actually the equivalent of doing 'this.getClass().bindMethod(this, name)'.</div></dd><dt> <code>getCallback(name:String)</code></dt><dd><div class='content'>The <code>getCallback</code> method is similar to <code>getMethod</code>, except that it will add an extra argument which is the <code>this</code> used when invoking the method. Libraries such as <a href="<http://www.jquery.com>" class="external">jQuery</a> change the <code>this</code> of callbacks given to events such as <code>click</code> or <code>focus</code> to the DOM node that received the event rather than the instance to which the method is bound. Using <code>getMethod</code> insulates you from this change, but you also lose the reference to the DOM node that received the event (the event target). When using <code>getCallback</code>, you'll have the target as an additional argument.</div></dd><dt> <code>getSuper(c:Class)</code></dt><dd><div class='content'>Returns a proxy that will use the current object as state, but where every operation defined in the proxy will use the implementation defined in the given class.</div></dd><dt> <code>isInstance(c:Class)</code></dt><dd><div class='content'>Returns <code>true</code> if this instance is an instance of the given class, which must be either the class of this instance, or an ancestor of this instance class.</div></dd></dl></div></div></div></div><div class="section" level="1"><h1 class="heading"><span class="number"><span class="level0">3<span class="lastDot dot">.</span></span></span>Examples</h1><div class="level1"><p>Step 1: Create a new class</p><pre>var Shape = Extend.Class(
-  name:"Shape",
-  initialize:function(){
-    this.points = [];
-  }
-  methods:{
-    addPoint:function(p){
-      this.points.push(p);
-    }
-    getPoints:function(){
-      return this.points;
-    }
-  }
-});</pre><p>Step 2: Create an instance of your class, and do stuff</p><pre>my_shape = new Shape();
-my_shape.addPoint([0,0]);
-my_shape.addPoint([1,0]);
-console.log(my_shape.getPoints().toSource());</pre><p>Step 3: Create a subclass</p><pre>var Rectangle = Extend.Class(
-  name:"Rectangle",
-  parent:"Shape",
-  initialize:function(){
-    this.points = [];
-  }
-  methods:{
-    addPoint:function(p){
-      this.points.push(p);
-    }
-    getPoints:function(){
-      return this.points;
-    }
-  }
-});</pre><p>Using callbacks with jQuery</p><pre>var MyWidget = Extend.Class({
-  name:"MyWidget",
-  methods:{
-    onClick:function(target){
-      $(target).css({background:yello});
-    }
-})
+<div class="kiwiContent"><div class='content'><div class="section" level="1"><h1 class="heading"><span class="number"><span class="level0">1<span class="lastDot dot">.</span></span></span>The problem</h1><div class="level1"></div></div><div class="section" level="1"><h1 class="heading"><span class="number"><span class="level0">2<span class="lastDot dot">.</span></span></span>Channels API</h1><div class="level1"><div class="section" level="2"><h2 class="heading"><span class="number"><span class="level0">2<span class="dot">.</span></span><span class="level1">1<span class="lastDot dot">.</span></span></span>Futures API</h2><div class="level2"><div class="section" level="3"><h3 class="heading"><span class="number"><span class="level0">2<span class="dot">.</span></span><span class="level1">1<span class="dot">.</span></span><span class="level2">1<span class="lastDot dot">.</span></span></span>Channels API</h3><div class="level3"></div></div></div></div></div></div><div class="section" level="1"><h1 class="heading"><span class="number"><span class="level0">3<span class="lastDot dot">.</span></span></span>Burst Channel Protocol</h1><div class="level1"><p>Burst channels is an easy way to do HTTP tunneling over HTTP. The idea is that when you have a lot of tiny requests to send to the server, it is may be better to group them as a larger request, so that you don't pay the overhead of multiplied latency.</p><p>For instance, if you have to send 10 requests, and you have a 100ms latency to the server, you'll end up having 1000ms total latency, while when using burst channels, you could keep the 100ms latency.</p><div class="section" level="2"><h2 class="heading"><span class="number"><span class="level0">3<span class="dot">.</span></span><span class="level1">1<span class="lastDot dot">.</span></span></span>Request format</h2><div class="level2"><p>The Burst Channel protocol is modeled after the MIME RFC <a href="#RFC1341" class="internal">RFC1341</a>]. The idea is that the client will simply embed each request as an individual body in a <span class='term'>composite request</span>.</p><pre>+---------------------------------------------------------------+
+| GET         /url/supporting/burst/channel                     |
++---------------------------------------------------------------+
+| Content-Type: multipart/mixed;boundary=BURST-q0M2Yt08jU534c0p |
+| X-Channel-Type: burst                                         |
+| X-Channel-Requests: 4                                         |
++---------------------------------------------------------------+
+| HTTP REQUEST 1                                                |
+| ............................................................. |
+| boundary=BURST-q0M2Yt08jU534c0p                               |
+| ............................................................. |
+| HTTP REQUEST 2                                                |
+| ............................................................. |
+| boundary=BURST-q0M2Yt08jU534c0p                               |
+| ............................................................. |
+| HTTP REQUEST 4                                                |
++---------------------------------------------------------------+</pre><p>Each HTTP request is given as-is, including request URI, headers and body. The only thing to watch for is to avoid conflicts in boundaries, which is why the separator should start with <code>BURST-</code> (which makes it easier to disambiguate).</p><p>Aside from that, it is a good idea to add an <code>X-Channel-Type:burst</code> header to the requests headers, just to be more explicit (and give a chance to reverse proxies to direct the burst requests to the appropriate server)&ndash;but it should not be required by servers.</p><p>The optional <code>X-Channel-Requests</code> field can also be added to indicate how many requests are expected to be found in the request bodies. This is only useful for debugging purposes, as HTTP requests are expected to arrive completely.</p><p>There is no other particular requirement for the URL either, it is more a matter of convention. It's generally OK to provide a single URL that processes burst channels requests. In some cases, you might prefer to partition your site and provide different URLs that can handle burst channels.</p></div></div><div class="section" level="2"><h2 class="heading"><span class="number"><span class="level0">3<span class="dot">.</span></span><span class="level1">2<span class="lastDot dot">.</span></span></span>Response format</h2><div class="level2"><p>Symetrically to the request, the response will contain embedded HTTP responses to the embedded HTTP requests. The only constraint to respect here is to make sure the ordering of responses is the same as the ordering of requests.</p><pre>+---------------------------------------------------------------+
+| HTTP 200 OK                                                   |
++---------------------------------------------------------------+
+| Content-Type: multipart/mixed;boundary=BURST-q0M2Yt08jU534c0p |
+| X-Channel-Responses: 4                                        |
++---------------------------------------------------------------+
+| HTTP RESPONSE 1                                               |
+| ............................................................. |
+| boundary=BURST-q0M2Yt08jU534c0p                               |
+| ............................................................. |
+| HTTP RESPONSE 2                                               |
+| ............................................................. |
+| boundary=BURST-q0M2Yt08jU534c0p                               |
+| ............................................................. |
+| HTTP RESPONSE 4                                               |
++---------------------------------------------------------------+</pre><p>The optional <code>X-Channel-Responses</code> plays the same role as <code>X-Channel-Requests</code> and is only useful for debugging purposes.</p></div></div><div class="section" level="2"><h2 class="heading"><span class="number"><span class="level0">3<span class="dot">.</span></span><span class="level1">3<span class="lastDot dot">.</span></span></span>Expected client behaviour</h2><div class="level2"><p>The client can choose whether he wants to send the request all at once or if he will "stream" the bodies, meaning that there may be some delay between the sending of each body. However, this is unlikely to happen as web browsers do not support streaming of request bodies.</p><p>Clients should take advantage of response streaming and start to process the responses even if all the responses have not been received.</p></div></div><div class="section" level="2"><h2 class="heading"><span class="number"><span class="level0">3<span class="dot">.</span></span><span class="level1">4<span class="lastDot dot">.</span></span></span>Expected server behaviour</h2><div class="level2"><p>Conversely, the server can choose between waiting for all the requests to be processed to before sending the response, or to send the responses as soon as they are available, provided the ordering is kept.</p><p>The optimal behaviour would be to start processing the requests as soon as they are available, and to stream the responses as soon as they are available and in order.</p></div></div><div class="section" level="2"><h2 class="heading"><span class="number"><span class="level0">3<span class="dot">.</span></span><span class="level1">5<span class="lastDot dot">.</span></span></span>Possible extensions</h2><div class="level2"><p>One of the obvious extensions to burst channels is to do simple HTTP streaming, where the client sends only one request, and that the server returns an infinite amount of responses.</p></div></div></div></div><div class="section" level="1"><h1 class="heading"><span class="number"><span class="level0">4<span class="lastDot dot">.</span></span></span>Examples</h1><div class="level1"><p><a href="#RFC1341" class="internal">RFC1341</a>The Multipart content type <a href="http://www.w3.org/Protocols/rfc1341/7_2_Multipart.html" class="external">RFC section 7</a></p></div></div></div></div>
 
-var w = new MyWidget()
-$("#my-widget").click( w.getCallback("onClick") )</pre></div></div></div></div>
-<div class="kiwiReferences"><div class="entry"><div class="name"><a name="0">0</a></div><div class="content"> JavaScript Gotchas, Sébastien Pierre, June 2007
-      <a href="http://www.ivy.fr/notes/javascript-gotchas.html" class="external">tech note</a></div></div><div class="entry"><div class="name"><a name="1">1</a></div><div class="content"> Object-Oriented Programmming in JavaScript, Mike Moss, January 2006
-      <a href="http://mckoss.com/jscript/object.htm" class="external">article</a></div></div><div class="entry"><div class="name"><a name="2">2</a></div><div class="content"> Prototype-based Programming Wikipedia Article,
-      <a href="http://en.wikipedia.org/wiki/Prototype-based_programming" class="external">wikipedia</a></div></div><div class="entry"><div class="name"><a name="3">3</a></div><div class="content"> Java Reflection API
-      <a href="http://java.sun.com/docs/books/tutorial/reflect/index.html" class="external">tutorial</a></div></div><div class="entry"><div class="name"><a name="4">4</a></div><div class="content"> Extend Class, Prototype library extension to add subclassing
-      <a href="http://wiki.script.aculo.us/scriptaculous/show/ExtendClass" class="external">wiki page</a></div></div><div class="entry"><div class="name"><a name="5">5</a></div><div class="content"> Extend Class Further, adding Ruby-like OO features to Prototype
-      <a href="http://wiki.script.aculo.us/scriptaculous/show/ExtendClassFurther" class="external">wiki page</a></div></div></div>
 </body>
 </html>
