@@ -1,0 +1,36 @@
+<html
+	<head
+		<title:HTTP Burst Channels test
+		<link(rel=stylesheet,media=screen,type=text/css,href=css/screen.css)
+		<link(rel=stylesheet,media=screen,type=text/css,href=css/testing.css)
+		<script(type=text/javascript,src=js/jquery-1.2.1.js)
+		<script(type=text/javascript,src=js/html-1.1.js)
+		<script(type=text/javascript,src=js/extend+sugar.js)
+		<script(type=text/javascript,src=sjs/testing.sjs)
+		<script(type=text/javascript,src=sjs/channels.sjs)
+		<script(type=text/javascript,src=burst-channels.sjs)
+
+	<body
+		<div.title
+			<h1:Channels - Burst HTTP Channels
+			<h2:Core test (22-Jan-2007)
+
+		<h2:About
+		<div
+			This test requires that you start the <code>burst-channels.py</code>
+			server before.
+
+		<h2:Results
+
+		<table.TestResults
+			<tr
+				<td(colspan=3,style=display:none)
+
+		<h2:Description
+		<div
+			If everything works, you should only see green items !
+			<br
+			This tests the different types of channels (synchronous and
+			asynchronous), using <code:GET> and <code:POST> HTTP methods.
+
+# EOF

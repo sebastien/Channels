@@ -259,20 +259,21 @@
 		options :: {v,k| self options [k] = v }
 	@end
 
-	@method get url, body="", future=Undefined
+	@method get url, body="", headers=[], future=Undefined
 	| Invokes a 'GET' to the given url (prefixed by the optional 'prefix' set in
 	| this channel options) and returns a 'Future'.
 	|
 	| The future is already bound with a 'refresh' callback that will do the
 	| request again.
+		# FIXME: THe body should be URL-encoded
 		var get_url    = options prefix + url
 		body           = _normalizeBody(body)
-		future         = transport get (get_url, body, future or _createFuture())
-		future onRefresh {f| return get (url, f) }
+		future         = transport get (get_url, body, headers, future or _createFuture())
+		future onRefresh {f| return get (url, body, headers, f) }
 		return future
 	@end
 
-	@method post url, body="", future=Undefined
+	@method post url, body="", headers=[], future=Undefined
 	| Invokes a 'POST' to the give url (prefixed by the optional 'prefix' set in
 	| this channel options), using the given 'body' as request body, and
 	| returning a 'Future' instance.
@@ -281,8 +282,8 @@
 	| request again.
 		var post_url   = options prefix + url
 		body           = _normalizeBody(body)
-		future         = transport post (post_url, body, future or _createFuture())
-		future onRefresh {f| return post (url, body, f) }
+		future         = transport post (post_url, body, headers, future or _createFuture())
+		future onRefresh {f| return post (url, body, headers, f) }
 		return future
 	@end
 
@@ -395,6 +396,132 @@
 
 # -----------------------------------------------------------------------------
 #
+# Burst Channel Class
+#
+# -----------------------------------------------------------------------------
+
+@class BurstChannel: AsyncChannel
+| The BurstChannel is a specific type of AsyncChannel that is capable of
+| tunneling HTTP requests in HTTP.
+
+	@property channelURL      = Undefined
+	@property onPushCallbacks = []
+	@property requestsQueue   = []
+
+	@constructor url, options
+		super (options)
+		channelURL = url or "/channels:burst"
+	@end
+
+	@method onPush callback
+	| Registers a callback that will be called when something is 'pushed' into
+	| the channel (a GET, POST, etc). The callback can query the channel status
+	| and decide to explicitly flush the 'requestsQueue', or just do nothing.
+	|
+	| FIXME: WHAT ARGUMENTS ?
+		onPushCallbacks push (callback)
+	@end
+
+	@method _pushRequest request
+		requestsQueue push (request)
+	@end
+
+	@method _sendRequests requests
+		var boundary = "8<-----BURST-CHANNEL-REQUEST-------"
+		var headers = [
+			["X-Channel-Boundary",      boundary]
+			["X-Channel-Type",          "burst"]
+			["X-Channel-Requests",      "" + (requests length)]
+		]
+		var request_as_text = []
+		var futures = []
+		for r in requests
+			var t = r method + " " + r url + "\r\n"
+			r headers :: {h| t += h[0] + ": " + h[1] + "\n"}
+			t    += "\r\n"
+			t    += r body
+			request_as_text push (t)
+			futures push (r future)
+		end
+		var body = request_as_text join (boundary + "\n")
+		var f    = transport post ( channelURL, body, headers )
+		f onSet  {v|_processResponses(v,futures)}
+		f onFail {r,d,f| futures :: {f|f fail(r,d,f)}}
+	@end
+
+	@method _processResponses response, futures
+	| This is the callback attached to composite methods
+		console log(response)
+		var text = response responseText
+		var boundary = response getResponseHeader ("X-Channel-Boundary")
+		if not boundary
+			futures :: {f|f fail "Server did not provide X-Channel-Boundary header"}
+		else
+			var i = 0
+			for r in text split (boundary)
+				r = {return eval("(" + r + ")")} ()
+				r responseText = r body
+				r getHeader = {h|
+					h = h toLowerCase ()
+					result = Undefined
+					for header in r headers
+						if header[0] toLowerCase() == h
+							result = header[1]
+						end
+					end
+					return result
+				}
+				r getResponseHeader = {h|return r getHeader(h) or response getResponseHeader(h)}
+				futures [i] set (r)
+				i += 1
+			end
+		end
+	@end
+
+	@method flush filter={return True}
+	| Flushes the 'requestsQueue', using the given 'filter' function. For every request in
+	| 'requestsQueue', if 'filter(r)' is 'True', then the request is sent to the server
+	| in a composite request.
+		var remaining = []
+		var flushed   = []
+		requestsQueue :: {r|
+			if filter (r)
+
+				flushed push (r)
+			else
+				remaining push (r)
+			end
+		}
+		requestsQueue = remaining
+		_sendRequests (flushed)
+	@end
+
+	@method get url, body="", future=Undefined
+	| Invokes a 'GET' to the given url (prefixed by the optional 'prefix' set in
+	| this channel options) and returns a 'Future'.
+	|
+	| The future is already bound with a 'refresh' callback that will do the
+	| request again.
+		var request = {method:"GET",url:url,body:_normalizeBody(body),future:(future or _createFuture())}
+		_pushRequest(request)
+		return request future
+	@end
+
+	@method post url, body="", future=Undefined
+	| Invokes a 'POST' to the give url (prefixed by the optional 'prefix' set in
+	| this channel options), using the given 'body' as request body, and
+	| returning a 'Future' instance.
+	|
+	| The future is already bound with a 'refresh' callback that will do the
+	| request again.
+		var request = {method:"POST",url:url,body:_normalizeBody(body),future:(future or _createFuture())}
+		_pushRequest(request)
+		return request future
+	@end
+@end
+
+# -----------------------------------------------------------------------------
+#
 # HTTP Transport Class
 #
 # -----------------------------------------------------------------------------
@@ -413,12 +540,13 @@
 	@constructor
 	@end
 
-	@method syncGet url, body=None, future=(new Future())
+	@method syncGet url, body=None, headers=[], future=(new Future())
 		var request  = _createRequest ()
 		var response = _processRequest (request,{
 			method       : 'GET'
 			body         : body
 			url          : url
+			headers      : headers
 			asynchronous : False
 			success      : {v| future set  (v) }
 			failure      : {v| future fail (v status, v responseText) }
@@ -426,12 +554,13 @@
 		return future
 	@end
 
-	@method syncPost url, body=None, future=(new Future())
+	@method syncPost url, body=None, headers=[], future=(new Future())
 		var request  = _createRequest ()
 		var response = _processRequest (request,{
 			method       : 'POST'
 			body         : body
 			url          : url
+			headers      : headers
 			asynchronous : False
 			success      : {v| future set  (v) }
 			failure      : {v| future fail (v status, v responseText) }
@@ -439,12 +568,13 @@
 		return future
 	@end
 
-	@method asyncGet url, body=None, future=(new Future())
+	@method asyncGet url, body=None, headers=[], future=(new Future())
 		var request  = _createRequest ()
 		var response = _processRequest (request,{
 			method       : 'GET'
 			body         : body
 			url          : url
+			headers      : headers
 			asynchronous : True
 			success      : {v| future set  (v) }
 			failure      : {v| future fail (v status, v responseText) }
@@ -452,12 +582,13 @@
 		return future
 	@end
 
-	@method asyncPost url, body="", future=(new Future())
+	@method asyncPost url, body="", headers=[], future=(new Future())
 		var request  = _createRequest ()
 		var response = _processRequest (request,{
 			method       : 'POST'
 			body         : body
 			url          : url
+			headers      : headers
 			asynchronous : True
 			success      : {v| future set  (v) }
 			failure      : {v| future fail (v status, v responseText) }
