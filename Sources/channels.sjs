@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 05-Feb-2008
+# Last mod  : 25-Feb-2008
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.7.2b (05-Feb-2008)
+@version 0.7.3 (25-Feb-2008)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -259,6 +259,14 @@
 		options :: {v,k| self options [k] = v }
 	@end
 
+	@method isAsynchronous
+		return undefined
+	@end
+
+	@method isSynchronous
+		return undefined
+	@end
+
 	@method get url, body="", headers=[], future=Undefined
 	| Invokes a 'GET' to the given url (prefixed by the optional 'prefix' set in
 	| this channel options) and returns a 'Future'.
@@ -376,6 +384,12 @@
 		transport get  = HTTPTransport DEFAULT getMethod "syncGet"
 		transport post = HTTPTransport DEFAULT getMethod "syncPost"
 	@end
+	@method isAsynchronous
+		return False
+	@end
+	@method isSynchronous
+		return True
+	@end
 @end
 
 # -----------------------------------------------------------------------------
@@ -391,6 +405,12 @@
 		super (options)
 		transport get  = HTTPTransport DEFAULT getMethod "asyncGet"
 		transport post = HTTPTransport DEFAULT getMethod "asyncPost"
+	@end
+	@method isAsynchronous
+		return True
+	@end
+	@method isSynchronous
+		return False
 	@end
 @end
 
