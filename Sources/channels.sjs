@@ -5,18 +5,18 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 25-Feb-2008
+# Last mod  : 27-Feb-2008
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.7.3 (25-Feb-2008)
+@version 0.7.4 (27-Feb-2008)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
 | well known from some concurrent programming languages and frameworks.
 
 # TODO: Abstract Channels and Futures from HTTP
-# TODO: Refactor _errorReason and _errorDetails into something more useful
+# TODO: Refactor _failureStatus and _failureReason into something more useful
 
 # -----------------------------------------------------------------------------
 #
@@ -38,11 +38,12 @@
 | Futures provide an interesting abstraction to deal with these situations.
 | This implementation of Futures was inspired from the Oz programming language.
 
-	@shared   STATES  = {WAITING:1,SET:2,FAILED:3}
-	@shared   REASONS = {FAILURE:"failure",TIMEOUT:"timeout",EXCEPTION:"exception"}
+	@shared   STATES   = {WAITING:1,SET:2,FAILED:3}
+	@shared   FAILURES = {GENERAL:"FAILURE",TIMEOUT:"TIMEOUT",EXCEPTION:"EXCEPTION"}
 	@property _value
-	@property _errorReason
-	@property _errorDetails
+	@property _failureStatus
+	@property _failureReason
+	@property _failureContext
 	@property _processors   = []
 	@property _onSet:<[]>   = []
 	@property _onFail:<[]>  = []
@@ -75,20 +76,20 @@
 		return _value
 	@end
 
-	@method fail reason=(REASONS FAILURE), details=Undefined
-	| Fails this future with the given (optional) 'reason' and 'details'. The
-	| 'reason' should be a value from the 'REASONS' dictionary, and the context
-	| an object (probably a dictionary) that gives more detailed information on
-	| the failure.
+	@method fail status=(FAILURES GENERAL), reason=Undefined, context=Undefined
+	| Fails this future with the given (optional) 'status' (machine-readbale
+	| code), 'reason' (human-readable string) and context (the value that
+	| originated the failure). 
 	|
-	| >   future fail ( "timeout", 2000 ) 
+	| >   future fail ( f FAILURES TIMEOUT,  "Timeout of 2000ms exceeded")
 	|
 	| Could mean to the application that the future failed because the timeout
 	| value of 2000 was reached.
 		state = STATES FAILED
-		_errorReason  = reason
-		_errorDetails = details
-		_onFail :: {c| c(reason,details,self) }
+		_failureStatus  = status
+		_failureReason  = reason
+		_failureContext = context
+		_onFail :: {c| c(status,reason,context,self) }
 		return self
 	@end
 
@@ -127,25 +128,37 @@
 
 	@method onFail callback
 	| Registers the given callback to be invoked when this future fails.
-	| The callback will take the error reason and error details as first two
-	| arguments, and the future as third argument.
+	| The callback takes the following arguments:
 	|
-	| >    # r = reason, d = details, f = future
-	| >    future onFail {r,d,f| print ("Future", f, "failed: reason is ", r, ", ", d)}
+	| - the 'status' for the failure (ie. machine-readable description of the error)
+	| - the 'reason' for the failure (ie. human-readable description of the error)
+	| - the 'context' for the exception, so that clients have the opportunity
+	| - the 'future' in which the failure happened
+	|
+	| Example:
+	|
+	| >    # s = status, r = reason, c = context, f = future
+	| >    future onFail {s,r,c,f| print ("Future", f, "failed: with code", s, " reason is ", r, "in context", c)}
 		#assert callback, "Callback is required"
 		_onFail push (callback)
 		if hasFailed () -> callback (_value, self)
 		return self
 	@end
 
-	@method getErrorReason
-	| Returns the reason for the error. This is only set when the future has failed.
-		return _errorReason
+	@method getFailureStatus
+	| Returns the status for the error. The status is a machine-readable code.
+		return _failureStatus
 	@end
 
-	@method getErrorDetails
-	| Returns the details for the error. This is only set when the future has failed.
-		return _errorDetails
+	@method getFailureReason
+	| Returns the reason for the error. The reason is a human-readable string.
+		return _failureReason
+	@end
+
+	@method getFailureContext
+	| Returns the context in which the failure happened. For HTTP channels, this
+	| will be the reference to the HTTP request that failed.
+		return _failureContext
 	@end
 
 	@group Extensions
@@ -178,7 +191,7 @@
 		|
 		| It's particularly useful to use 'refresh' along with 'process',
 		| especially when you're querying URLs frequently.
-			state = STATED WAITING
+			state = STATES WAITING
 			if _onRefresh -> _onRefresh (self)
 			return self
 		@end
@@ -466,7 +479,7 @@
 		var body = request_as_text join (boundary + "\n")
 		var f    = transport post ( channelURL, body, headers )
 		f onSet  {v|_processResponses(v,futures)}
-		f onFail {r,d,f| futures :: {f|f fail(r,d,f)}}
+		f onFail {s,r,c,f| futures :: {f|f fail(s,r,c)}}
 	@end
 
 	@method _processResponses response, futures
@@ -554,6 +567,16 @@
 |
 | All the futures returned by the HTTPTransport will give the HTTP request object
 | as-is. Particularly, the 'Channels' 
+|
+| In case the transports fails to complete the request, the future 'fail' method
+| will be invoked with the follwing arguments:
+|
+| - 'request status' as status for the failure (ie.
+|    machine-readable description of the error)
+| - 'request responseText' as the reason for the failure (ie.
+|    human-readable description of the error)
+| - 'request' as the context for the exception, so that clients have the opportunity
+|    to get more information from the reques itself, like headers.
 
 	@shared DEFAULT
 
@@ -569,7 +592,7 @@
 			headers      : headers
 			asynchronous : False
 			success      : {v| future set  (v) }
-			failure      : {v| future fail (v status, v responseText) }
+			failure      : {v| future fail (v status, v responseText, v) }
 		})
 		return future
 	@end
@@ -583,7 +606,7 @@
 			headers      : headers
 			asynchronous : False
 			success      : {v| future set  (v) }
-			failure      : {v| future fail (v status, v responseText) }
+			failure      : {v| future fail (v status, v responseText, v) }
 		})
 		return future
 	@end
@@ -597,7 +620,7 @@
 			headers      : headers
 			asynchronous : True
 			success      : {v| future set  (v) }
-			failure      : {v| future fail (v status, v responseText) }
+			failure      : {v| future fail (v status, v responseText, v) }
 		})
 		return future
 	@end
@@ -611,7 +634,7 @@
 			headers      : headers
 			asynchronous : True
 			success      : {v| future set  (v) }
-			failure      : {v| future fail (v status, v responseText) }
+			failure      : {v| future fail (v status, v responseText, v) }
 		})
 		return future
 	@end
@@ -645,7 +668,7 @@
 	| - 'success', the callback that will be invoked on success, with the
 	|    request as argument
 	| - 'failure', the callback that will be invoked on failure, with the
-	|    request argument
+	|    request as argument.
 	|
 		var callback_was_executed = False
 		var on_request_complete   = {state|

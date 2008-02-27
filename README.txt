@@ -20,6 +20,37 @@ Channels API
   Channels API
   ------------
 
+How-to
+======
+
+  Handling failures in HTTP channels
+  ----------------------------------
+
+  While most of the request you'll do using the HTTP channels will succeed, some
+  of them will fail for various reasons: there was a timeout, the server
+  crashed, or you simply gave wrong arguments.
+
+  As channels always return your futures, you'll simply use the channels
+  'onFail' callback to register a function that will be invoked if the channel
+  is not able to get the value to your future.
+  
+  Here is an example (in Sugar):
+
+  >   var f = channel get "/some/url"
+  >   f onFail { status, reason, context, future|
+  >     ....
+  >   }
+
+  In the callback you gave, you will be given the following arguments:
+
+  - 'status' with the HTTP response status code (404, 500, etc)
+  - 'reason' with the body of the HTTP response, expected to be a human-readable
+    string
+  - 'context' with the reference to the request that failed, so you can still
+    get extra information from the headers
+  - 'future' referencing the future that failed, in case you have a shared error
+    handler.
+
 Burst Channel Protocol
 ======================
 
