@@ -24,6 +24,9 @@
 #
 # -----------------------------------------------------------------------------
 
+# TODO: Separate future
+# TODO: Add cencel
+# TODO: Add Lock, Mutex, Semaphore and 
 @class Future
 | A Future represents the promise of a future value returned by an invocation
 | that started an asynchronous process. In other words, a future is a value that
