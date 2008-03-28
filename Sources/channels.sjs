@@ -356,7 +356,7 @@
 		@end
 
 		@method _responseIsJSON response
-			var content_type = response getResponseHeader "Content-Type"
+			var content_type = response getResponseHeader "Content-Type" split ";" [0]
 			if content_type is "text/javascript" or content_type is "text/x-json" or content_type is "application/json"
 				return True
 			else
