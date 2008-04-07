@@ -42,7 +42,7 @@ class MainComponent(LocalFiles):
 	def test500( self, request ):
 		return request.respond(status="500", content="Let's pretend this is a crash")
 
-	@on(GET="count",POST="count")
+	@on(GET="/count",POST="/count")
 	def count( self, request ):
 		res = str(self.counter)
 		self.counter += 1
