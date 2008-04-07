@@ -4,12 +4,11 @@
 		<link(rel=Stylesheet,type=text/css,href=css/base.css)
 		<link(rel=Stylesheet,type=text/css,href=css/testing.css)
 		<script(language="javascript",type="text/javascript",src="js/jquery-1.2.1.js")
-		<script(language=javascript,type="text/javascript",src="js/extend+sugar.js")
+		<script(language=javascript,type="text/javascript",src="js/extend+runtime.js")
 		<script(language=javascript,type="text/javascript",src="js/html-1.1.js")
 		<script(language="javascript",type="text/javascript",src="sjs/testing.sjs")
 		<script(language="javascript",type="text/javascript",src="sjs/channels.sjs")
 		<script(language="javascript",type="text/javascript",src="tests/http-channels.sjs")
-		<script(language="javascript",type="text/javascript",src="tests/burst-channels.sjs")
 	<body
 
 		<div.Header
@@ -20,13 +19,14 @@
 			<table(width=100%)
 				<tr
 					<th(width=200px):Name
-					<td:Placement <span.out-version:1.0>
+					<td:Channels <span.out-version:0.7>
 				<tr
 					<th:Dependencies
 					<td:jQuery, extend, html
 
 		<div#results
-		<div#TestArea
+		<script
+			testing.HTMLReporter.Install()
 
 # EOF
 

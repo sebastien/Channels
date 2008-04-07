@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 27-Feb-2008
+# Last mod  : 07-Apr-2008
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.7.4 (27-Feb-2008)
+@version 0.7.5 (07-Apr-2008)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -47,9 +47,11 @@
 	@property _failureStatus
 	@property _failureReason
 	@property _failureContext
-	@property _processors   = []
-	@property _onSet:<[]>   = []
-	@property _onFail:<[]>  = []
+	# FIXME: Lazily create these
+	@property _processors        = []
+	@property _onSet:<[]>        = []
+	@property _onFail:<[]>       = []
+	@property _onException:<[]>  = []
 	@property _onRefresh:<Function>
 	@property state
 
@@ -62,8 +64,20 @@
 	| for an underlying asynchronous system (such as MochiKit Defered).
 		_value = value
 		state  = STATES SET
-		_processors :: {p| _value = p(_value)}
-		_onSet      :: {c| c(_value, self) }
+		_processors :: {p|
+			try
+				_value = p(_value)
+			catch e
+				_handleException (e)
+			end
+		}
+		_onSet      :: {c|
+			try
+				c(_value, self)
+			catch e
+				_handleException (e)
+			end
+		}
 		return self
 	@end
 
@@ -92,7 +106,13 @@
 		_failureStatus  = status
 		_failureReason  = reason
 		_failureContext = context
-		_onFail :: {c| c(status,reason,context,self) }
+		_onFail :: {c|
+			try
+				c(status,reason,context,self)
+			catch e
+				_handleException (e)
+			end
+		}
 		return self
 	@end
 
@@ -119,7 +139,13 @@
 	| >    future onSet {v,f| print ("Received value", v, "from future", f)}
 		#assert callback, "Callback is required"
 		_onSet push (callback)
-		if hasSucceeded () -> callback (_value, self)
+		if hasSucceeded ()
+			try
+				callback (_value, self)
+			catch e
+				_handleException(e)
+			end
+		end
 		return self
 	@end
 
@@ -142,10 +168,29 @@
 	|
 	| >    # s = status, r = reason, c = context, f = future
 	| >    future onFail {s,r,c,f| print ("Future", f, "failed: with code", s, " reason is ", r, "in context", c)}
+	|
+	|
+	| NOTE: failures and exceptions are different things, a failure means that the
+	| future won't have its value set (because something happened in the pipe), while
+	| an exception means that the code broke at some point.
 		#assert callback, "Callback is required"
 		_onFail push (callback)
-		if hasFailed () -> callback (_value, self)
+		if hasFailed ()
+			try
+				callback (_value, self)
+			catch e
+				_handleException(e)
+			end
+		end
 		return self
+	@end
+
+	@method onException callback
+	| Registers a callback to handle exceptions that may happen when executing the
+	| onFail or onSucceed callbacks. Exception callbacks are added LIFO and are chained:
+	| each callback takes the exception 'e' and the future 'f' as parameters, and will
+	| block propagation to the next by returning 'False'.
+		_onException splice (0,0,callback)
 	@end
 
 	@method getFailureStatus
@@ -162,6 +207,23 @@
 	| Returns the context in which the failure happened. For HTTP channels, this
 	| will be the reference to the HTTP request that failed.
 		return _failureContext
+	@end
+
+	@method _handleException e
+	| Invoked when a future had and exception. This invokes every callback registered
+	| in the 'onException' list (which were previously registered using the
+	| 'onFail' method).
+		var i = 0
+		var r = True
+		while i < _onException length
+			if _onException [i](e,this) == False
+				i = exceptionCallbacks length + 1
+				r = False
+			end
+			i += 1
+		end
+		if i == 0 -> raise (e)
+		return r
 	@end
 
 	@group Extensions
@@ -269,7 +331,8 @@
 		post      : Undefined
 	}
 
-	@property failureCallbacks = []
+	@property failureCallbacks   = []
+	@property exceptionCallbacks = []
 
 	@constructor options={}
 		options :: {v,k| self options [k] = v }
@@ -319,6 +382,14 @@
 		failureCallbacks push (callback)
 	@end
 
+	@method onException callback
+	| Sets a callback that will be invoked when a future created in this channel
+	| raises an exception. The given 'callback' takes the _exceptoin_ and _future_ as
+	| arguments. Callbacks are inserted in LIFO style, if a callback returns 'False',
+	| propagation of the exception will stop.
+		exceptionCallbacks splice (0,0,callback)
+	@end
+
 	@group Futures
 	| These methods are related to the creation and lifecycle of futures used in
 	| this channel.
@@ -326,8 +397,9 @@
 		@method _createFuture
 		| Returns a new future, properly initialized for this channel
 			var future = new Future ()
-			future onFail ( _futureHasFailed )
-			future process ( _processHTTPResponse )
+			future onFail      ( _futureHasFailed )
+			future onException ( _futureHadException )
+			future process     ( _processHTTPResponse )
 			return future
 		@end
 
@@ -336,6 +408,22 @@
 		| in the 'failureCallbacks' list (which were previously registered using the
 		| 'onFail' method).
 			failureCallbacks :: {c|c(reason,details,future)}
+		@end
+
+		@method _futureHadException e, future
+		| Invoked when a future had and exception. This invokes every callback registered
+		| in the 'exceptionCallbacks' list (which were previously registered using the
+		| 'onFail' method).
+			var i = 0
+			var r = True
+			while i < exceptionCallbacks length
+				if exceptionCallbacks[i](e,future) == False
+					i = exceptionCallbacks length + 1
+					r = False
+				end
+				i += 1
+			end
+			return r
 		@end
 
 	@end

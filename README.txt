@@ -23,8 +23,8 @@ Channels API
 How-to
 ======
 
-  Handling failures in HTTP channels
-  ----------------------------------
+  Handle failures in HTTP channels
+  --------------------------------
 
   While most of the request you'll do using the HTTP channels will succeed, some
   of them will fail for various reasons: there was a timeout, the server
@@ -50,6 +50,51 @@ How-to
     get extra information from the headers
   - 'future' referencing the future that failed, in case you have a shared error
     handler.
+
+  Handle exceptions in channels and futures callbacks
+  ---------------------------------------------------
+
+  You may think at first that exceptions are a specific case of failures. In
+  channels and futures, there is a major difference between failures and
+  exceptions:
+
+  - A failure indicates that the future won't have a value, which is something
+    that can happen (eg. when using an HTTP channel, server can timeout, request
+    can be invalid, etc).
+  - An exception indicates that there was an unhandled error happening within
+    the code, in this case the callbacks given to channels and futures.
+
+  So if you implement *callbacks that raise exceptions*, you'll need to define
+  callbacks to catch these exceptions, otherwise they will propagate to your
+  program and your application will break.
+
+  Here is an example of a callback that raises an exception:
+
+  >   var f = new Future ()
+  >   f onSet {v| if v < 3 -> throw "Expects 3 or more"}
+
+  doing 'f(2)' will raise an exception, while 'f(3)' won't. To  catch the
+  exception (and allow your code to continue after the 'f(2)' invocation), you
+  can define a callback for exception:
+
+  >   f onException {e,f| print ("Exception happened",e,"in future",f)}
+
+  You can add multiple handlers for exception. They will stack up, and the last
+  callback you added will be invoked first. If the callback returns 'False', the
+  other callback won't be called (so you have a chance to stop propagation).
+
+  >   f onException {return False}
+
+  will simply absorb the exceptions without notifying you. You can also define
+  exception handlers for channels (and every future created by the channel will
+  make use of it):
+
+  >   var c = new AsyncChannel ()
+  >   c onException {e,f| print ("Exception happened",e,"in future",f) ; return False}
+
+  If you want to know more about this have a look at 'Future.onException',
+  'Channel.onException' and the 'channelExceptionPropagation' in the test
+  suite.
 
 Burst Channel Protocol
 ======================

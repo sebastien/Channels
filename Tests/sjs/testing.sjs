@@ -436,6 +436,7 @@
 				OnNote:      onNote
 				OnLog:       onLog
 			}
+			if $(selector) length == 0 -> alert("testing.HTMLReporter cannot hook on DOM:" + selector)
 		@end
 
 		@operation Install

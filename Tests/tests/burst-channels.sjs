@@ -41,7 +41,6 @@
 @end
 
 $ (document) ready {
-	T HTMLReporter Install ()
 	testBurstChannelPerformance ()
 }
 # EOF
