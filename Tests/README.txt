@@ -26,7 +26,7 @@ Once you have all that installed, you can simply do (from the Channels
 directory):
 
 >	cd Tests
->	python test-runner.py
+>	python test.py
 
 And you should see something like that:
 
