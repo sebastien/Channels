@@ -35,6 +35,10 @@ dist: $(PRODUCT_JS) $(PRODUCT_SJS) doc $(DIR_DIST)
 clean:
 	rm -rf $(DIR_DIST) $(DOC_HTML)
 
+test:
+	@echo "Go to http://localhost:8080/index.paml"
+	@cd Tests ; python test.py
+
 # Specific rules _____________________________________________________________
 
 $(DOC_API): $(SOURCES_SJS) $(DIR_DIST)

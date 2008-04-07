@@ -17,6 +17,10 @@ class MainComponent(LocalFiles):
 		LocalFiles.init(self, root)
 		self._processors.update(pamelaweb.getProcessors())
 
+	@on(GET="/")
+	def main( self, request ):
+		return request.redirect("index.paml")
+
 	@on(GET="/test/GET")
 	def testGet( self, request ):
 		return request.returns({"hello":"world","method":"GET"})
@@ -37,6 +41,12 @@ class MainComponent(LocalFiles):
 	@on(GET_POST="/test/500")
 	def test500( self, request ):
 		return request.respond(status="500", content="Let's pretend this is a crash")
+
+	@on(GET="count",POST="count")
+	def count( self, request ):
+		res = str(self.counter)
+		self.counter += 1
+		return request.respond(res)
 
 # -----------------------------------------------------------------------------
 #
