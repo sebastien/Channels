@@ -423,6 +423,9 @@
 				end
 				i += 1
 			end
+			if i == 0 and self isSynchronous() 
+				raise (e)
+			end
 			return r
 		@end
 
@@ -772,7 +775,14 @@
 				end
 			end
 		}
-		request onreadystatechange = on_request_complete
+		var asynchronous = (options asynchronous or False)
+		# We only want to ask the browser to use HTTP
+		# 'onreadystatechange' in asynchronous mode, so that
+		# we can catch any exceptions that options failure()
+		# will throw.
+		if asynchronous
+			request onreadystatechange = on_request_complete
+		end
 		request open (options method or "GET", options url, options asynchronous or False)
 		# On FireFox, headers must be set after request is opened.
 		# <http://developer.mozilla.org/en/docs/XMLHttpRequest>
@@ -781,7 +791,7 @@
 		# On FireFox, a synchronous request HTTP 'onreadystatechange' callback is
 		# not executed, which means that we have to take care of it manually.
 		# NOTE: When FireBug is enabled, this doesn't happen.. go figure !
-		if (not callback_was_executed) and (not (options asynchronous or False))
+		if (not callback_was_executed) and (not asynchronous)
 			on_request_complete ()
 		end
 	@end
