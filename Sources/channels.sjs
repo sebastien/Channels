@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 07-Apr-2008
+# Last mod  : 19-Jan-2008
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.7.5 (07-Apr-2008)
+@version 0.7.6 (19-Jan-2008)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
