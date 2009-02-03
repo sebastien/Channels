@@ -384,7 +384,7 @@
 		# FIXME: THe body should be URL-encoded
 		var get_url    = options prefix + url
 		body           = _normalizeBody(body)
-		future         = transport get (get_url, body, headers, future or _createFuture())
+		future         = transport get (get_url, body, headers, future or _createFuture(), self options)
 		future onRefresh {f| return get (url, body, headers, f) }
 		return future
 	@end
@@ -398,7 +398,7 @@
 	| request again.
 		var post_url   = options prefix + url
 		body           = _normalizeBody(body)
-		future         = transport post (post_url, body, headers, future or _createFuture())
+		future         = transport post (post_url, body, headers, future or _createFuture(), self options)
 		future onRefresh {f| return post (url, body, headers, f) }
 		return future
 	@end
@@ -706,7 +706,7 @@
 	@constructor
 	@end
 
-	@method syncGet url, body=None, headers=[], future=(new Future())
+	@method syncGet url, body=None, headers=[], future=(new Future()), options={}
 		var request  = _createRequest ()
 		var response = _processRequest (request,{
 			method       : 'GET'
@@ -714,13 +714,14 @@
 			url          : url
 			headers      : headers
 			asynchronous : False
+			timestamp    : options timestamp
 			success      : {v| future set  (v) }
 			failure      : {v| future fail (v status, v responseText, v) }
 		})
 		return future
 	@end
 
-	@method syncPost url, body=None, headers=[], future=(new Future())
+	@method syncPost url, body=None, headers=[], future=(new Future()), options={}
 		var request  = _createRequest ()
 		var response = _processRequest (request,{
 			method       : 'POST'
@@ -728,13 +729,14 @@
 			url          : url
 			headers      : headers
 			asynchronous : False
+			timestamp    : options timestamp
 			success      : {v| future set  (v) }
 			failure      : {v| future fail (v status, v responseText, v) }
 		})
 		return future
 	@end
 
-	@method asyncGet url, body=None, headers=[], future=(new Future())
+	@method asyncGet url, body=None, headers=[], future=(new Future()), options={}
 		var request  = _createRequest ()
 		var response = _processRequest (request,{
 			method       : 'GET'
@@ -742,6 +744,7 @@
 			url          : url
 			headers      : headers
 			asynchronous : True
+			timestamp    : options timestamp
 			loading      : {v| future setPartial (v) }
 			success      : {v| future set  (v) }
 			failure      : {v| future fail (v status, v responseText, v) }
@@ -749,7 +752,7 @@
 		return future
 	@end
 
-	@method asyncPost url, body="", headers=[], future=(new Future())
+	@method asyncPost url, body="", headers=[], future=(new Future()), options={}
 		var request  = _createRequest ()
 		var response = _processRequest (request,{
 			method       : 'POST'
@@ -757,6 +760,7 @@
 			url          : url
 			headers      : headers
 			asynchronous : True
+			timestamp    : options timestamp
 			success      : {v| future set  (v) }
 			failure      : {v| future fail (v status, v responseText, v) }
 		})
@@ -795,7 +799,10 @@
 	|    loading, with the request as argument.
 	| - 'failure', the callback that will be invoked on failure, with the
 	|    request as argument.
-	|
+	| - 'timestamp', if 'True' will add an additional 'timestamp' parameter to
+	|   the request, with the current time. This can prevent some browsers
+	|   (notably IE) to cache a response that you don't want to cache (even if you
+	|   specify no-cache, or things like this in the response).
 		var callback_was_executed = False
 		var on_request_complete   = {state|
 			callback_was_executed = True
@@ -810,6 +817,15 @@
 			end
 		}
 		var asynchronous = (options asynchronous or False)
+		# Timestamp allows to bypass client-side caching by making each request
+		# a single URL (by adding the timestamp parameter"
+		if options timestamp
+			if options url indexOf "?" == -1
+				options url += "?timestamp=" + ( new Date () getTime () )
+			else
+				options url += "&timestamp=" + ( new Date () getTime () )
+			end
+		end
 		# We only want to ask the browser to use HTTP
 		# 'onreadystatechange' in asynchronous mode, so that
 		# we can catch any exceptions that options failure()
