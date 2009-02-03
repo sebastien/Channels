@@ -818,8 +818,9 @@
 		}
 		var asynchronous = (options asynchronous or False)
 		# Timestamp allows to bypass client-side caching by making each request
-		# a single URL (by adding the timestamp parameter"
-		if options timestamp
+		# a single URL (by adding the timestamp parameter". For now we only do
+		# this for GET methods.
+		if options method == "GET" and options timestamp
 			if options url indexOf "?" == -1
 				options url += "?timestamp=" + ( new Date () getTime () )
 			else
