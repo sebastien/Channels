@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 19-Jan-2008
+# Last mod  : 03-Feb-2009
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.7.6 (19-Jan-2008)
+@version 0.8.1 (03-Feb-2009)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -50,6 +50,7 @@
 	# FIXME: Lazily create these
 	@property _processors        = []
 	@property _onSet:<[]>        = []
+	@property _onPartial:<[]>    = []
 	@property _onFail:<[]>       = []
 	@property _onException:<[]>  = []
 	@property _onRefresh:<Function>
@@ -72,6 +73,19 @@
 			end
 		}
 		_onSet      :: {c|
+			try
+				c(_value, self)
+			catch e
+				_handleException (e)
+			end
+		}
+		return self
+	@end
+
+	@method setPartial
+	| Some future values may be updated sequentially, this happens when you do a
+	| request to a streaming HTTP service (also known as Comet).
+		_onPartial      :: {c|
 			try
 				c(_value, self)
 			catch e
@@ -146,6 +160,17 @@
 				_handleException(e)
 			end
 		end
+		return self
+	@end
+	
+	@method onPartial callback
+	| Registers the given callback to be invoked when this future value is
+	| partially set. Some values (especially those coming from streaming sources)
+	| may be received in success "packets". Callbacks will be invoked with the
+	| partial value and this future as argument.
+	| 
+	| Note that the value will not be processed, as it is partial.
+		_onPartial push (callback)
 		return self
 	@end
 
@@ -335,7 +360,11 @@
 	@property exceptionCallbacks = []
 
 	@constructor options={}
-		options :: {v,k| self options [k] = v }
+		if isString(options)
+			self options prefix = options
+		else
+			options :: {v,k| self options [k] = v }
+		end
 	@end
 
 	@method isAsynchronous
@@ -713,6 +742,7 @@
 			url          : url
 			headers      : headers
 			asynchronous : True
+			loading      : {v| future setPartial (v) }
 			success      : {v| future set  (v) }
 			failure      : {v| future fail (v status, v responseText, v) }
 		})
@@ -761,12 +791,16 @@
 	| - 'headers' is a dictionary of headers to add to the request
 	| - 'success', the callback that will be invoked on success, with the
 	|    request as argument
+	| - 'loading', the callback that will be invoked when the request is 
+	|    loading, with the request as argument.
 	| - 'failure', the callback that will be invoked on failure, with the
 	|    request as argument.
 	|
 		var callback_was_executed = False
 		var on_request_complete   = {state|
 			callback_was_executed = True
+			if request readyState == 3 and options loading
+					options loading (request)
 			if request readyState == 4
 				if request status >= 200 and request status < 300
 					options success (request)
