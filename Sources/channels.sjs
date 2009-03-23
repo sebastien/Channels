@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 03-Feb-2009
+# Last mod  : 23-Mar-2009
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.8.1 (03-Feb-2009)
+@version 0.8.2 (23-Mar-2009)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -41,7 +41,7 @@
 | Futures provide an interesting abstraction to deal with these situations.
 | This implementation of Futures was inspired from the Oz programming language.
 
-	@shared   STATES   = {WAITING:1,SET:2,FAILED:3}
+	@shared   STATES   = {WAITING:1,SET:2,FAILED:3,CANCELLED:4}
 	@shared   FAILURES = {GENERAL:"FAILURE",TIMEOUT:"TIMEOUT",EXCEPTION:"EXCEPTION"}
 	@property _value
 	@property _failureStatus
@@ -53,6 +53,7 @@
 	@property _onPartial:<[]>    = []
 	@property _onFail:<[]>       = []
 	@property _onException:<[]>  = []
+	@property _onCancel:<[]>     = []
 	@property _onRefresh:<Function>
 	@property state
 
@@ -98,6 +99,21 @@
 	@method get
 	| This is an alias for 'value'
 		return value()
+	@end
+
+	@method cancel
+	| Cancels the retrieval of the value. This will invoke the onCancel callbacks, only
+	| if the Future state is WAITING.
+		if state == STATES WAITING
+			state = STATES CANCELLED
+			_onCancel :: {c|
+				try
+					c(status,reason,context,self)
+				catch e
+					_handleException (e)
+				end
+			}
+		end
 	@end
 
 	@method value
@@ -216,6 +232,14 @@
 	| each callback takes the exception 'e' and the future 'f' as parameters, and will
 	| block propagation to the next by returning 'False'.
 		_onException splice (0,0,callback)
+	@end
+
+	@method onCancel callback
+	| Registers the given callback to be executed when the future is cancelled. Usually, it is the
+	| process that creates the Future that will register an 'onCancel' callback first. For instance,
+	| an Future returned by an HTTP Request would have an onCancel callback that would just close the
+	| associated HTTP request.
+		_onCancel splice (0,0,callback)
 	@end
 
 	@method getFailureStatus
@@ -708,6 +732,7 @@
 
 	@method syncGet url, body=None, headers=[], future=(new Future()), options={}
 		var request  = _createRequest ()
+		future onCancel {request abort ()}
 		var response = _processRequest (request,{
 			method       : 'GET'
 			body         : body
@@ -723,6 +748,7 @@
 
 	@method syncPost url, body=None, headers=[], future=(new Future()), options={}
 		var request  = _createRequest ()
+		future onCancel {request abort ()}
 		var response = _processRequest (request,{
 			method       : 'POST'
 			body         : body
@@ -738,6 +764,7 @@
 
 	@method asyncGet url, body=None, headers=[], future=(new Future()), options={}
 		var request  = _createRequest ()
+		future onCancel {request abort ()}
 		var response = _processRequest (request,{
 			method       : 'GET'
 			body         : body
@@ -754,6 +781,7 @@
 
 	@method asyncPost url, body="", headers=[], future=(new Future()), options={}
 		var request  = _createRequest ()
+		future onCancel {request abort ()}
 		var response = _processRequest (request,{
 			method       : 'POST'
 			body         : body
