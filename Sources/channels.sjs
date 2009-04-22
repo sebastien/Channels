@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 23-Mar-2009
+# Last mod  : 22-Apr-2009
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.8.2 (23-Mar-2009)
+@version 0.8.3 (22-Apr-2009)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -17,7 +17,43 @@
 
 # TODO: Abstract Channels and Futures from HTTP
 # TODO: Refactor _failureStatus and _failureReason into something more useful
+#
+# -----------------------------------------------------------------------------
+#
+# RENDEZ-VOUS CLASS
+#
+# -----------------------------------------------------------------------------
 
+@class RendezVous
+| A rendez-vous allows to set a callback that will be invoked when an
+| expected number of participant is reached. This is similar to the Semaphore
+| construct, excepted that it is "inversed".
+
+	@property expected      = 0
+	@property participants  = []
+	@property meetCallbacks = []
+	
+	@constructor expected=0
+	| Creates a new rendez-vous with the 'expected' number of participants
+		self expected = expected
+	@end
+	
+	@method join participant=None
+	| Called by a particpant when it joins the rendez-vous. The given 'participant'
+	| value will be added to the list of participants.
+		participants push (participant)
+		if participants length == expected -> meetCallbacks :: {c|c(self)}
+	@end
+	
+	@method onMeet callback
+	| Registers a callback that will be invoked with this rendez-vous when it
+	| is met. If the rendez-vous is already met, the callback will be invoked
+	| directly.
+		meetCallbacks push (callback)
+		if  participants length == expected -> meetCallbacks :: {c|c(self)}
+	@end
+
+@end
 # -----------------------------------------------------------------------------
 #
 # Future Class
