@@ -37,20 +37,33 @@
 	| Creates a new rendez-vous with the 'expected' number of participants
 		self expected = expected
 	@end
-	
+
+	@method setExpected value
+	| Set the expected 'value'. This will trigger the callbacks registered with the
+	| 'onMeet' method.
+		self expected = value
+		trigger ()
+	@end
+
 	@method join participant=None
 	| Called by a particpant when it joins the rendez-vous. The given 'participant'
 	| value will be added to the list of participants.
 		participants push (participant)
-		if participants length == expected -> meetCallbacks :: {c|c(self)}
+		trigger ()
 	@end
 	
 	@method onMeet callback
 	| Registers a callback that will be invoked with this rendez-vous when it
 	| is met. If the rendez-vous is already met, the callback will be invoked
 	| directly.
-		meetCallbacks push (callback)
-		if  participants length == expected -> meetCallbacks :: {c|c(self)}
+		if callback -> meetCallbacks push (callback)
+		trigger ()
+	@end
+
+	@method trigger
+	| Invokes the 'onMeet' callbacks when the number of participants is greater
+	| or equal to the expected number of partipiants.
+		if  participants length >= expected -> meetCallbacks :: {c|c(self)}
 	@end
 
 @end
