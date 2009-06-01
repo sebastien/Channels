@@ -680,7 +680,6 @@
 
 	@method _processResponses response, futures
 	| This is the callback attached to composite methods
-		console log(response)
 		var text = response responseText
 		var boundary = response getResponseHeader ("X-Channel-Boundary")
 		if not boundary
