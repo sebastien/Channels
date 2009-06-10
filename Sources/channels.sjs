@@ -5,15 +5,17 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 22-Apr-2009
+# Last mod  : 10-Jun-2009
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.8.3 (22-Apr-2009)
+@version 0.8.5 (10-Jun-2009)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
 | well known from some concurrent programming languages and frameworks.
+
+@shared IS_IE = (navigator userAgent indexOf "MSIE" >= 0)
 
 # TODO: Abstract Channels and Futures from HTTP
 # TODO: Refactor _failureStatus and _failureReason into something more useful
@@ -896,11 +898,13 @@
 		# Timestamp allows to bypass client-side caching by making each request
 		# a single URL (by adding the timestamp parameter". For now we only do
 		# this for GET methods.
-		if options method == "GET" and options timestamp
+		# The '\v' == 'v' trick is to detect if we're using IE.
+		# See <http://ur1.ca/52cs>
+		if options method == "GET" and (options timestamp or IS_IE)
 			if options url indexOf "?" == -1
-				options url += "?timestamp=" + ( new Date () getTime () )
+				options url += "?t" + ( new Date () getTime () )
 			else
-				options url += "&timestamp=" + ( new Date () getTime () )
+				options url += "&t" + ( new Date () getTime () )
 			end
 		end
 		# We only want to ask the browser to use HTTP
