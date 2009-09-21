@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 10-Jun-2009
+# Last mod  : 21-Sep-2009
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.8.5 (10-Jun-2009)
+@version 0.8.6 (21-Sep-2009)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -504,6 +504,7 @@
 			future onFail      ( _futureHasFailed )
 			future onException ( _futureHadException )
 			future process     ( _processHTTPResponse )
+			future getException = {return eval ("(" + future getFailureContext () getResponseHeader "X-Exception" + ")")}
 			return future
 		@end
 
