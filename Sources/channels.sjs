@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 21-Sep-2009
+# Last mod  : 13-Jul-2010
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.8.6 (21-Sep-2009)
+@version 0.8.7 (13-Jul-2010)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -928,6 +928,20 @@
 		end
 	@end
 
+@end
+
+@function parameterize data:Map
+	assert (isMap (data), "channels.parameterize expects a map")
+	var result = Undefined
+	data :: {value,key|
+		var r = encodeURIComponent(value) + "=" + encodeURIComponent(value)
+		if result is Undefined
+			result = r
+		else
+			result += "&" + r
+		end
+	}
+	return result
 @end
 
 # TODO: Rewrite when Sugar supports initialize
