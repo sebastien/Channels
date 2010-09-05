@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 13-Jul-2010
+# Last mod  : 05-Sep-2010
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.8.7 (13-Jul-2010)
+@version 0.9.1 (05-Sep-2010)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -60,6 +60,7 @@
 	| directly.
 		if callback -> meetCallbacks push (callback)
 		trigger ()
+		return this
 	@end
 
 	@method trigger
@@ -68,7 +69,12 @@
 		if  participants length >= expected -> meetCallbacks :: {c|c(self)}
 	@end
 
+	@method count
+		return participants length
+	@end
+
 @end
+
 # -----------------------------------------------------------------------------
 #
 # Future Class
@@ -94,7 +100,12 @@
 
 	@shared   STATES   = {WAITING:1,SET:2,FAILED:3,CANCELLED:4}
 	@shared   FAILURES = {GENERAL:"FAILURE",TIMEOUT:"TIMEOUT",EXCEPTION:"EXCEPTION"}
+	@property retries = 0
+	| Counts the number of retries since last success. This is only incremented when
+	| 'retry' is invoked.
 	@property _value
+	@property _rawValue
+	| The raw value is the unprocessed value. In case Future have no processors, '_rawValue' is '_value'
 	@property _failureStatus
 	@property _failureReason
 	@property _failureContext
@@ -106,6 +117,11 @@
 	@property _onException:<[]>  = []
 	@property _onCancel:<[]>     = []
 	@property _onRefresh:<Function>
+	@property _origin
+	| The Future origin allows to reference an object that is responsible for
+	| setting the value of the future.
+	| For instance, HTTP channels will set the future _origin to be the resulting
+	| HTTP response, so that the headers can be extracted from the response.
 	@property state
 
 	@constructor
@@ -115,22 +131,28 @@
 	@method set value
 	| Sets the value for this future. This function can be given as a callback
 	| for an underlying asynchronous system (such as MochiKit Defered).
-		_value = value
-		state  = STATES SET
+		_rawValue = value
+		_value    = value
+		state     = STATES SET
 		_processors :: {p|
-			try
-				_value = p(_value)
-			catch e
-				_handleException (e)
+			if state == STATES SET
+				try
+					_value = p(_value, self)
+				catch e
+					_handleException (e)
+				end
 			end
 		}
-		_onSet      :: {c|
-			try
-				c(_value, self)
-			catch e
-				_handleException (e)
-			end
-		}
+		# Processors may alter the state
+		if state == STATES SET
+			_onSet      :: {c|
+				try
+					c(_value, self)
+				catch e
+					_handleException (e)
+				end
+			}
+		end
 		return self
 	@end
 
@@ -159,7 +181,7 @@
 			state = STATES CANCELLED
 			_onCancel :: {c|
 				try
-					c(status,reason,context,self)
+					c(_value,self)
 				catch e
 					_handleException (e)
 				end
@@ -172,6 +194,12 @@
 	| value is set. If you want to know if the value is set you can query the
 	| 'state' property of the future or invoke the 'isSet' method.
 		return _value
+	@end
+
+	@method rawValue
+	| Returns the raw (unprocessed) value, which might be the same as value
+	| in case the value was unprocessed.
+		return _rawValue
 	@end
 
 	@method fail status=(FAILURES GENERAL), reason=Undefined, context=Undefined
@@ -322,7 +350,10 @@
 			end
 			i += 1
 		end
-		if i == 0 -> raise (e)
+		# If there is no callback, we print the exception
+		if i == 0
+			print ("channels.Future._handleException: " + e)
+		end
 		return r
 	@end
 
@@ -361,6 +392,20 @@
 			return self
 		@end
 
+		@method retry maxRetry=5
+		| Refreshes the Future (which means that you should set an
+		| 'onRefresh' callback). If the number of 'retries' for this
+		| future is less than 'maxRetry', then the refresh will be made
+		| and 'True' will be returned. Otherwise 'False' is returned.
+			if retries < maxRetry
+				retries += 1
+				refresh ()
+				return True
+			else
+				return False
+			end
+		@end
+
 		@method onRefresh callback
 		| Sets the callback that will be invoked with this future as argument
 		| when the 'refresh' method is invoked. There can be only one refresh
@@ -388,7 +433,7 @@
 		| so that you can easily set up a chain of processing the future value.
 			#assert callback
 			_processors push (callback)
-			if isSet() -> _value = callback(_value)
+			if isSet() -> callback(_value)
 			return self
 		@end
 
@@ -426,10 +471,7 @@
 		forceJSON : False
 	}
 
-	@property transport = {
-		get       : Undefined
-		post      : Undefined
-	}
+	@property transport = HTTPTransport DEFAULT
 
 	@property failureCallbacks   = []
 	@property exceptionCallbacks = []
@@ -456,12 +498,16 @@
 	|
 	| The future is already bound with a 'refresh' callback that will do the
 	| request again.
-		# FIXME: THe body should be URL-encoded
-		var get_url    = options prefix + url
-		body           = _normalizeBody(body)
-		future         = transport get (get_url, body, headers, future or _createFuture(), self options)
-		future onRefresh {f| return get (url, body, headers, f) }
-		return future
+	|
+	| GET means retrieve whatever data is identified by the URI, so where the
+	| URI refers to a data-producing process, or a script which can be run by
+	| such a process, it is this data which will be returned, and not the source
+	| text of the script or process. Also used for searches .
+		return request ("GET", url, body, headers, future)
+	@end
+
+	@method head url, body="", headers=[], future=Undefined
+		return request ("HEAD", url, body, headers, future)
 	@end
 
 	@method post url, body="", headers=[], future=Undefined
@@ -471,10 +517,47 @@
 	|
 	| The future is already bound with a 'refresh' callback that will do the
 	| request again.
-		var post_url   = options prefix + url
-		body           = _normalizeBody(body)
-		future         = transport post (post_url, body, headers, future or _createFuture(), self options)
-		future onRefresh {f| return post (url, body, headers, f) }
+	|
+	| POST xreates a new object linked to the specified object. The message-id
+	| field of the new object may be set by the client or else will be given by
+	| the server. A URL will be allocated by the server and returned to the
+	| client. The new document is the data part of the request. It is considered
+	| to be subordinate to the specified object, in the way that a file is
+	| subordinate to a directory containing it, or a news article is subordinate
+	| to a newsgroup to which it is posted. 
+		return request ("POST", url, body, headers, future)
+	@end
+
+	@method put url, body="", headers=[], future=Undefined
+	| Specifies that the data in the body section is to be stored under the
+	| supplied URL. The URL must already exist. The new contenst of the document
+	| are the data part of the request. POST and REPLY should be used for
+	| creating new documents.
+		return request ("PUT", url, body, headers, future)
+	@end
+
+	@method delete url, body="", headers=[], future=Undefined
+		return request ("DELETE", url, body, headers, future)
+	@end
+
+	@method trace url, body="", headers=[], future=Undefined
+		return request ("TRACE", url, body, headers, future)
+	@end
+
+	@method request method, url, body="", headers=[], future=Undefined
+	| Generic function to create an HTTP request with the given parameters
+		var request_url   = options prefix + url
+		var request_body  = _normalizeBody(body)
+		# If the body is different, it means we've form-encoded the body, and we have
+		# to add the appropriate headers
+		if body != request_body
+			headers push (
+				["Content-Type",   "application/x-www-form-urlencoded"]
+				["Content-Length", request_body length]
+			)
+		end
+		future         = transport request (isAsynchronous(), method, request_url, request_body, headers, future or _createFuture(), self options)
+		future onRefresh {f| return post (url, request_body, headers, f) }
 		return future
 	@end
 
@@ -528,8 +611,9 @@
 				end
 				i += 1
 			end
-			if i == 0 and self isSynchronous() 
-				raise (e)
+			# If there is no callback, we print the exception
+			if i == 0
+				print ("channels.Future exception: " + e)
 			end
 			return r
 		@end
@@ -539,7 +623,7 @@
 	@group HTTP
 	| These are methods that are all specific to the HTTP protocol
 
-		@method _normalizeBody body
+		@operation _normalizeBody body
 		@as internal
 			if ( typeof(body) != "string" )
 				var new_body = ""
@@ -551,7 +635,7 @@
 			return body or ''
 		@end
 
-		@method _responseIsJSON response
+		@operation _responseIsJSON response
 			var content_type = response getResponseHeader "Content-Type" split ";" [0]
 			if content_type is "text/javascript" or content_type is "text/x-json" or content_type is "application/json"
 				return True
@@ -560,15 +644,26 @@
 			end
 		@end
 
-		@method _parseJSON json
+		@operation _parseJSON json
 			# NOTE: In Safari, we cannot evalute from the window namespace, so we have
 			# to do it from a closure
-			return {return eval(json)}()
+			return {return eval( "(" + json + ")")}()
+		@end
+
+		@method _normalizeBody body
+		@as internal
+			if ( typeof(body) != "string" )
+				var new_body = ""
+				var values   = []
+				body :: {v,k|values push (k + "=" + _encodeURI (v))}
+				body = values join "&"
+			end
+			return body or ''
 		@end
 
 		@method _processHTTPResponse response
-			if (options forceJSON and options evalJSON ) or (options evalJSON and _responseIsJSON(response))
-				return _parseJSON ( "(" + response responseText + ")" )
+			if (options forceJSON and options evalJSON ) or (options evalJSON and Channel _responseIsJSON(response))
+				return Channel _parseJSON ( response responseText )
 			else
 				return response responseText
 			end
@@ -593,8 +688,6 @@
 | object to do the communication.
 	@constructor options
 		super (options)
-		transport get  = HTTPTransport DEFAULT getMethod "syncGet"
-		transport post = HTTPTransport DEFAULT getMethod "syncPost"
 	@end
 	@method isAsynchronous
 		return False
@@ -615,8 +708,6 @@
 | object to do the communication.
 	@constructor options
 		super (options)
-		transport get  = HTTPTransport DEFAULT getMethod "asyncGet"
-		transport post = HTTPTransport DEFAULT getMethod "asyncPost"
 	@end
 	@method isAsynchronous
 		return True
@@ -676,8 +767,8 @@
 			futures push (r future)
 		end
 		var body = request_as_text join (boundary + "\n")
-		var f    = transport post ( channelURL, body, headers )
-		f onSet  {v|_processResponses(v,futures)}
+		var f    = transport request ( True, "POST", channelURL, body, headers )
+		f onSet  {v| _processResponses(v,futures) }
 		f onFail {s,r,c,f| futures :: {f|f fail(s,r,c)}}
 	@end
 
@@ -781,64 +872,15 @@
 	@constructor
 	@end
 
-	@method syncGet url, body=None, headers=[], future=(new Future()), options={}
+	@method request async, method, url, body=None, headers=[], future=(new Future()), options={}
 		var request  = _createRequest ()
 		future onCancel {request abort ()}
 		var response = _processRequest (request,{
-			method       : 'GET'
+			method       : method
 			body         : body
 			url          : url
 			headers      : headers
-			asynchronous : False
-			timestamp    : options timestamp
-			success      : {v| future set  (v) }
-			failure      : {v| future fail (v status, v responseText, v) }
-		})
-		return future
-	@end
-
-	@method syncPost url, body=None, headers=[], future=(new Future()), options={}
-		var request  = _createRequest ()
-		future onCancel {request abort ()}
-		var response = _processRequest (request,{
-			method       : 'POST'
-			body         : body
-			url          : url
-			headers      : headers
-			asynchronous : False
-			timestamp    : options timestamp
-			success      : {v| future set  (v) }
-			failure      : {v| future fail (v status, v responseText, v) }
-		})
-		return future
-	@end
-
-	@method asyncGet url, body=None, headers=[], future=(new Future()), options={}
-		var request  = _createRequest ()
-		future onCancel {request abort ()}
-		var response = _processRequest (request,{
-			method       : 'GET'
-			body         : body
-			url          : url
-			headers      : headers
-			asynchronous : True
-			timestamp    : options timestamp
-			loading      : {v| future setPartial (v) }
-			success      : {v| future set  (v) }
-			failure      : {v| future fail (v status, v responseText, v) }
-		})
-		return future
-	@end
-
-	@method asyncPost url, body="", headers=[], future=(new Future()), options={}
-		var request  = _createRequest ()
-		future onCancel {request abort ()}
-		var response = _processRequest (request,{
-			method       : 'POST'
-			body         : body
-			url          : url
-			headers      : headers
-			asynchronous : True
+			asynchronous : async
 			timestamp    : options timestamp
 			success      : {v| future set  (v) }
 			failure      : {v| future fail (v status, v responseText, v) }
@@ -901,7 +943,7 @@
 		# this for GET methods.
 		# The '\v' == 'v' trick is to detect if we're using IE.
 		# See <http://ur1.ca/52cs>
-		if options method == "GET" and (options timestamp or IS_IE)
+		if (options method == "GET" or options method == "HEAD" ) and (options timestamp or IS_IE)
 			if options url indexOf "?" == -1
 				options url += "?t" + ( new Date () getTime () )
 			else
@@ -918,7 +960,13 @@
 		request open (options method or "GET", options url, options asynchronous or False)
 		# On FireFox, headers must be set after request is opened.
 		# <http://developer.mozilla.org/en/docs/XMLHttpRequest>
-		options headers :: {v,k| request setRequestHeader (k,v) }
+		options headers :: {v,k|
+			if isMap (options headers)
+				request setRequestHeader (k, v)
+			else
+				request setRequestHeader (v[0],v[1]) 
+			end
+		}
 		request send (options body or '')
 		# On FireFox, a synchronous request HTTP 'onreadystatechange' callback is
 		# not executed, which means that we have to take care of it manually.
@@ -943,7 +991,6 @@
 	}
 	return result
 @end
-
 # TODO: Rewrite when Sugar supports initialize
 HTTPTransport DEFAULT = new HTTPTransport ()
 

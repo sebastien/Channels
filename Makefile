@@ -58,6 +58,6 @@ $(DIR_DIST):
 	pamela $< > $@
 
 %.html: %.txt
-	kiwi $< $@
+	texto $< $@
 
 # EOF
