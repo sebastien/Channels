@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 01-Oct-2010
+# Last mod  : 05-Oct-2010
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.9.2 (01-Oct-2010)
+@version 0.9.3 (05-Oct-2010)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -86,7 +86,7 @@
 # -----------------------------------------------------------------------------
 
 # TODO: Separate future
-# TODO: Add cencel
+# TODO: Add cancel
 # TODO: Add Lock, Mutex, Semaphore and 
 @class Future
 | A Future represents the promise of a future value returned by an invocation
@@ -551,7 +551,7 @@
 	@method request method, url, body="", headers=[], future=Undefined
 	| Generic function to create an HTTP request with the given parameters
 		var request_url   = options prefix + url
-		var request_body  = _normalizeBody(body)
+		var request_body  = NormalizeBody(body)
 		# If the body is different, it means we've form-encoded the body, and we have
 		# to add the appropriate headers
 		if body != request_body
@@ -660,19 +660,21 @@
 			return {return eval( "(" + json + ")")}()
 		@end
 
-		# FIXME: Updating to operation
-		@method _normalizeBody body
+		@operation NormalizeBody body
 		@as internal
 			if ( typeof(body) != "string" )
 				var new_body = ""
 				var values   = []
-				body :: {v,k|values push (k + "=" + _encodeURI (v))}
+				body :: {v,k|values push (k + "=" + EncodeURI (v))}
 				body = values join "&"
 			end
 			return body or ''
 		@end
 
-		# FIXME: Updating to operation
+		@operation EncodeURI value
+			return encodeURIComponent(value)
+		@end
+
 		@method _processHTTPResponse response
 			if (options forceJSON and options evalJSON ) or (options evalJSON and Channel ResponseIsJSON(response))
 				return Channel ParseJSON ( response responseText )
@@ -681,10 +683,6 @@
 			end
 		@end
 
-		# FIXME: Updating to operation
-		@method _encodeURI value
-			return encodeURIComponent(value)
-		@end
 
 	@end
 
@@ -837,7 +835,7 @@
 	|
 	| The future is already bound with a 'refresh' callback that will do the
 	| request again.
-		var request = {method:"GET",url:url,body:_normalizeBody(body),future:(future or _createFuture())}
+		var request = {method:"GET",url:url,body:NormalizeBody(body),future:(future or _createFuture())}
 		_pushRequest(request)
 		return request future
 	@end
@@ -849,7 +847,7 @@
 	|
 	| The future is already bound with a 'refresh' callback that will do the
 	| request again.
-		var request = {method:"POST",url:url,body:_normalizeBody(body),future:(future or _createFuture())}
+		var request = {method:"POST",url:url,body:NormalizeBody(body),future:(future or _createFuture())}
 		_pushRequest(request)
 		return request future
 	@end
