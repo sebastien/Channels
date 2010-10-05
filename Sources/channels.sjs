@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 05-Sep-2010
+# Last mod  : 01-Oct-2010
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.9.1 (05-Sep-2010)
+@version 0.9.2 (01-Oct-2010)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -45,6 +45,10 @@
 	| 'onMeet' method.
 		self expected = value
 		trigger ()
+	@end
+
+	@method increaseExpected
+		setExpected (expected + 1)
 	@end
 
 	@method join participant=None
@@ -433,7 +437,7 @@
 		| so that you can easily set up a chain of processing the future value.
 			#assert callback
 			_processors push (callback)
-			if isSet() -> callback(_value)
+			if isSet() -> _value = callback(_value)
 			return self
 		@end
 
@@ -623,19 +627,25 @@
 	@group HTTP
 	| These are methods that are all specific to the HTTP protocol
 
-		@operation _normalizeBody body
-		@as internal
-			if ( typeof(body) != "string" )
-				var new_body = ""
-				body :: {v,k|
-					new_body += k + "=" + _encodeURI (v) + "&"
-				}
-				body = new_body
+		@operation ToFormData value, prefix="", result=Undefined
+		| Encodes the given value as form data, following the Rails/Grails convention
+			if not isDefined(result)
+				return ToFormData(value, "", []) join "&\n"
+			else
+				var sep = (prefix length > 0 and ".") or ""
+				if extend isMap  (value)
+					value :: {v,k|ToFormData(v, prefix + sep + k, result)}
+				if extend isList (value)
+					value :: {v,i|ToFormData(v, prefix + sep + i, result)}
+				else
+					result push ((prefix or "value") + "=" + encodeURIComponent(value))
+				end
+				return result
 			end
-			return body or ''
 		@end
 
-		@operation _responseIsJSON response
+
+		@operation ResponseIsJSON response
 			var content_type = response getResponseHeader "Content-Type" split ";" [0]
 			if content_type is "text/javascript" or content_type is "text/x-json" or content_type is "application/json"
 				return True
@@ -644,12 +654,13 @@
 			end
 		@end
 
-		@operation _parseJSON json
+		@operation ParseJSON json
 			# NOTE: In Safari, we cannot evalute from the window namespace, so we have
 			# to do it from a closure
 			return {return eval( "(" + json + ")")}()
 		@end
 
+		# FIXME: Updating to operation
 		@method _normalizeBody body
 		@as internal
 			if ( typeof(body) != "string" )
@@ -661,14 +672,16 @@
 			return body or ''
 		@end
 
+		# FIXME: Updating to operation
 		@method _processHTTPResponse response
-			if (options forceJSON and options evalJSON ) or (options evalJSON and Channel _responseIsJSON(response))
-				return Channel _parseJSON ( response responseText )
+			if (options forceJSON and options evalJSON ) or (options evalJSON and Channel ResponseIsJSON(response))
+				return Channel ParseJSON ( response responseText )
 			else
 				return response responseText
 			end
 		@end
 
+		# FIXME: Updating to operation
 		@method _encodeURI value
 			return encodeURIComponent(value)
 		@end
