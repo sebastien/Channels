@@ -1,15 +1,15 @@
 # -----------------------------------------------------------------------------
 # Project   : Channels
 # -----------------------------------------------------------------------------
-# Author    : Sebastien Pierre                               <sebastien@ivy.fr>
+# Author    : Sebastien Pierre                            <sebastien@ffctn.com>
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 05-Oct-2010
+# Last mod  : 04-Nov-2010
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.9.3 (05-Oct-2010)
+@version 0.9.4 (04-Nov-2010)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -551,14 +551,22 @@
 	@method request method, url, body="", headers=[], future=Undefined
 	| Generic function to create an HTTP request with the given parameters
 		var request_url   = options prefix + url
-		var request_body  = NormalizeBody(body)
-		# If the body is different, it means we've form-encoded the body, and we have
-		# to add the appropriate headers
-		if body != request_body
-			headers push (
-				["Content-Type",   "application/x-www-form-urlencoded"]
-				["Content-Length", request_body length]
-			)
+		var request_body  = ""
+		
+		if method toUpperCase() == "GET"
+			if body
+				request_url = AddParameters(url, body)
+			end
+		else
+			request_body = NormalizeBody(body)
+			# If the body is different, it means we've form-encoded the body, and we have
+			# to add the appropriate headers
+			if body != request_body
+				headers push (
+					["Content-Type",   "application/x-www-form-urlencoded"]
+					["Content-Length", request_body length]
+				)
+			end
 		end
 		future         = transport request (isAsynchronous(), method, request_url, request_body, headers, future or _createFuture(), self options)
 		future onRefresh {f| return post (url, request_body, headers, f) }
@@ -658,6 +666,25 @@
 			# NOTE: In Safari, we cannot evalute from the window namespace, so we have
 			# to do it from a closure
 			return {return eval( "(" + json + ")")}()
+		@end
+
+		@operation AddParameters url, parameters
+			var query_index = url indexOf "?"
+			var has_params  = query_index != -1
+			if not isString(parameters)
+				var p = []
+				parameters :: {v,k|p push (k + "=" + EncodeURI(v))}
+				parameters = p join "&"
+			end
+			if has_params
+				if query_index == (url length - 1)
+					return url + parameters
+				else
+					return url + "&" + parameters
+				end
+			else
+				return url + "?" + parameters
+			end
 		@end
 
 		@operation NormalizeBody body
@@ -835,7 +862,7 @@
 	|
 	| The future is already bound with a 'refresh' callback that will do the
 	| request again.
-		var request = {method:"GET",url:url,body:NormalizeBody(body),future:(future or _createFuture())}
+		var request = {method:"GET",url:url, body:body,future:(future or _createFuture())}
 		_pushRequest(request)
 		return request future
 	@end
@@ -847,7 +874,7 @@
 	|
 	| The future is already bound with a 'refresh' callback that will do the
 	| request again.
-		var request = {method:"POST",url:url,body:NormalizeBody(body),future:(future or _createFuture())}
+		var request = {method:"POST",url:url,body:body,future:(future or _createFuture())}
 		_pushRequest(request)
 		return request future
 	@end
