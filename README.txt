@@ -1,24 +1,172 @@
-== Channels 0.8
-== Developer Manual
--- Author: Sebastien Pierre <sebastien@ivy.fr>
--- Revision: 12-Nov-2007
-
+== Channels
+== Sync/Async Communication in JavaScript
+-- Author: Sebastien Pierre <sebastien@ffctn.com>
+-- Revision: 2010-08-11
+-- Creation: 2007-11-12
 
 The problem
 ===========
 
+Web applications now require a lot of client <--> server interaction using HTTP
+requests. These requests can be either _blocking_ (synchronous) or
+_non-blocking_ (asynchronous). Doing synchronous HTTP requests is easy for a
+developer, as the HTTP request can be executed as a regular method call:
+
+>   var r = new XMLHttpRequest();
+>   r.open("GET", "sampledata.json");
+>   r.send(null);
+>   var intermediate_result = doSomethinWithTheResponse(r.responseText)
+>   var final_result = doSomethinElseWithTheResponse(intermediate_result)
+
+However, doing asynchronous HTTP requests implies using callbacks, which impacts your programming style:
+
+>   var r = new XMLHttpRequest();
+>   r.open("GET", "sampledata.json");
+>   r.onreadystatechange=function(){
+>     if (r.readyState==4) {
+>         var intermediate_result = doSomethinWithTheResponse(r.responseText)
+>         var final_result = doSomethinElseWithTheResponse(intermediate_result)
+>     }
+>   }
+>   r.send(null);
+
+The Channels library aims at providing a _uniform API to do synchronous and
+asynchronous requests_, as well as to offer constructs that will ease
+asynchronous concurrent programming on the client-side.
 
 Channels API
-==========
+============
+
+The Channels API is built on two main constructs:
+
+  Futures::
+    Futures are objects that wrap values, so that you can register callbacks that will be
+    triggered when the value is set, or if there was a failure while setting the value.
+
+  Channels::
+    Channels are objects that abstract a connection between a client and a server. Channels
+    produce futures to which you can attach callbacks.
+
+Futures API
+-----------
+
+  Creating and operating on a future
+  ----------------------------------
+
+  'new Future()'::
+    Creates a new future without a value. The future will be by default in the
+    'WAITING' state until a value is set, a failure occurs or the future is
+    cancelled.
+
+  '<Future>.set(value:Any)'::
+    Sets a value to this future. The future will be in the 'SET' state and the
+    callbacks registered with 'onSet' will be triggered in their order of
+    registration.
+
+  '<Future>.setPartial(value:Any)'::
+    Sets a value to this future. The future will stay in the 'WAITING' state
+    until a value is bound using 'set', but the callbacks registered with
+    'onPartial' will be triggered in their order of registration.
+
+  '<Future>.get():Any'::
+    Returns the value bound to this future, if any.
+
+  '<Future>.fail(status:Any,reason:Any,context:Any)'::
+    Makes this future fail. The future will be in the 'FAILED' state.
+
+  '<Future>.cancel()'::
+    Cancels this future. The future will be in the 'CANCELED' state.
+
+  Registering callbacks
+  ---------------------
+
+  '<Future>.onSet(callback:(value:Any,future:Future)->Any):Future'::
+    Registers a callback that will be called when a value is bound to
+    the future (using the 'set' method).
+
+  '<Future>.onFail(callback:(status:Int,reason:String,context:Any,future:Future)->Any):Future'::
+    Registers a callback that will be called if the future fails. The given arguments
+    are inspired from HTTP, with 'status' being the error code, 'reason' an optional
+    string description, 'context' an optional data object (typically the XMLHttpRequest object
+    if the future comes from an HTTP channel) a reference to this future.
+
+  '<Future>.onPartial(callback:(value:Any,future:Future)->Any):Future'::
+    Registers a callback that will be called when the future is partially set. This is useful
+    for the implementation of multi-body or streaming HTTP requests.
+
+  '<Future>.onException(callback:(e:Exception,future:Future)->Any):Future'::
+    Registers a callback that will be called if there is an exception while executing
+    a callback. If an exception happens without any exception callback registered, the
+    exception will be printed on the console.
+
+  '<Future>.onCancel(callback:(value:Any,future:Future)->Any):Future'::
+    Registers a callback that will be called if the future is cancelled.
+
+  '<Future>.onRefresh(callback:(future:Future)->Any):Future'::
+    Registers a callback that will be called when the future is refreshed. The typical usage
+    is to pass the future to a function that will set its value or make it fail.
+
+  Querying a future:
+  ------------------
+
+  '<Future>.isSet()'::
+    Returns 'true' if a value is bound to the future
+
+  '<Future>.hasFailed()'::
+    Returns 'true' if the future has failed
+
+  '<Future>.hasSucceeded()'::
+    Returns 'true' if the future has suceeded (same as 'isSet()')
+
+  '<Future>.getFailureStatus():Any'::
+    Retuens the failure status, when the future has failed
+
+  '<Future>.getFailureReason():Any'::
+    Retuens the failure reason, when the future has failed
+
+  Retrying a future
+  -----------------
+  
+  Futures may fail due to timeouts, connection or server errors. Some channels may set
+  'refresh' callbacks, in which case you can either call the 'refresh' or 'retry' functions
+  to try to update the future.
+  
+  '<Future>.refresh():Future'::
+    Triggers the callbacks registerd with 'onRefresh'. These callback may or may not 
+    change this future.
+
+  '<Future>.retry(max:Int=5):Boolean'::
+    Triggers a refresh an increases the number of retries. It returns 'true' if the
+    number of retries for this future is below the given maximum. Typical usage of this is
+    in the following case (in Sugar):
+    |
+    >   future onSet {
+    >     # Do something
+    >   } onFail {s,r,c,future|
+    >     if not future retry (5)
+    >       # We had 5 errors in a row, so we have to take action
+    >       alert "The server is down, sorry !"
+    >     end
+    >   }
 
 
+  Chain-processing the value
+  --------------------------
 
-  Futures API
-  -----------
+  You might want to pre-process values bound to a future. For instance, HTTP channels may
+  want to automatically convert the incoming data to JSON and make the future fail
+  if the JSON is invalid. You can register _processors_ that convert the value into another
+  or directly control the future.
 
+  '<Future>.process(processor:(value:Any,future:Future)->Any)'::
+    Registers a processor function that takes the bound value and the future as paramater
+    and returns the transformed value.
     
-  Channels API
-  ------------
+  '<Future>.rawValue():Any'::
+    Returns the raw value bound to the future, before being processed.
+    
+Channels API
+------------
 
 How-to
 ======
