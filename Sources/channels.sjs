@@ -5,11 +5,11 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 04-Nov-2010
+# Last mod  : 10-Nov-2010
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.9.4 (04-Nov-2010)
+@version 0.9.5 (10-Nov-2010)
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
@@ -496,7 +496,7 @@
 		return undefined
 	@end
 
-	@method get url, body="", headers=[], future=Undefined
+	@method get url, body=None, headers=[], future=Undefined
 	| Invokes a 'GET' to the given url (prefixed by the optional 'prefix' set in
 	| this channel options) and returns a 'Future'.
 	|
@@ -510,11 +510,11 @@
 		return request ("GET", url, body, headers, future)
 	@end
 
-	@method head url, body="", headers=[], future=Undefined
+	@method head url, body=None, headers=[], future=Undefined
 		return request ("HEAD", url, body, headers, future)
 	@end
 
-	@method post url, body="", headers=[], future=Undefined
+	@method post url, body=None, headers=[], future=Undefined
 	| Invokes a 'POST' to the give url (prefixed by the optional 'prefix' set in
 	| this channel options), using the given 'body' as request body, and
 	| returning a 'Future' instance.
@@ -532,7 +532,7 @@
 		return request ("POST", url, body, headers, future)
 	@end
 
-	@method put url, body="", headers=[], future=Undefined
+	@method put url, body=None, headers=[], future=Undefined
 	| Specifies that the data in the body section is to be stored under the
 	| supplied URL. The URL must already exist. The new contenst of the document
 	| are the data part of the request. POST and REPLY should be used for
@@ -540,32 +540,34 @@
 		return request ("PUT", url, body, headers, future)
 	@end
 
-	@method delete url, body="", headers=[], future=Undefined
+	@method delete url, body=None, headers=[], future=Undefined
 		return request ("DELETE", url, body, headers, future)
 	@end
 
-	@method trace url, body="", headers=[], future=Undefined
+	@method trace url, body=None, headers=[], future=Undefined
 		return request ("TRACE", url, body, headers, future)
 	@end
 
-	@method request method, url, body="", headers=[], future=Undefined
+	@method request method, url, body=None, headers=[], future=Undefined
 	| Generic function to create an HTTP request with the given parameters
 		var request_url   = options prefix + url
-		var request_body  = ""
+		var request_body  = None
 		
 		if method toUpperCase() == "GET"
 			if body
-				request_url = AddParameters(url, body)
+				request_url = AddParameters(request_url, body)
 			end
 		else
-			request_body = NormalizeBody(body)
-			# If the body is different, it means we've form-encoded the body, and we have
-			# to add the appropriate headers
-			if body != request_body
-				headers push (
-					["Content-Type",   "application/x-www-form-urlencoded"]
-					["Content-Length", request_body length]
-				)
+			if body
+				request_body = NormalizeBody(body)
+				# If the body is different, it means we've form-encoded the body, and we have
+				# to add the appropriate headers
+				if body != request_body
+					headers push (
+						["Content-Type",   "application/x-www-form-urlencoded"]
+						["Content-Length", request_body length]
+					)
+				end
 			end
 		end
 		future         = transport request (isAsynchronous(), method, request_url, request_body, headers, future or _createFuture(), self options)
@@ -683,7 +685,11 @@
 					return url + "&" + parameters
 				end
 			else
-				return url + "?" + parameters
+				if parameters
+					return url + "?" + parameters
+				else
+					return url
+				end
 			end
 		@end
 
@@ -856,7 +862,7 @@
 		_sendRequests (flushed)
 	@end
 
-	@method get url, body="", future=Undefined
+	@method get url, body=None, future=Undefined
 	| Invokes a 'GET' to the given url (prefixed by the optional 'prefix' set in
 	| this channel options) and returns a 'Future'.
 	|
@@ -867,7 +873,7 @@
 		return request future
 	@end
 
-	@method post url, body="", future=Undefined
+	@method post url, body=None, future=Undefined
 	| Invokes a 'POST' to the give url (prefixed by the optional 'prefix' set in
 	| this channel options), using the given 'body' as request body, and
 	| returning a 'Future' instance.
