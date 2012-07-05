@@ -5,17 +5,18 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 10-Aug-2006
-# Last mod  : 10-Nov-2010
+# Last mod  : 05-Jul-2012
 # -----------------------------------------------------------------------------
 
 @module  channels
-@version 0.9.5 (10-Nov-2010)
+@version 1.1.1
 @target  JavaScript
 | The channels module defines objects that make JavaScript client-side HTTP
 | communication easier by providing the 'Future' and 'Channel' abstractions
 | well known from some concurrent programming languages and frameworks.
 
 @shared IS_IE = (navigator userAgent indexOf "MSIE" >= 0)
+@shared ExceptionHandler = {e|print ("channels.ExceptionHandler: " + e);raise (e)}
 
 # TODO: Abstract Channels and Futures from HTTP
 # TODO: Refactor _failureStatus and _failureReason into something more useful
@@ -40,6 +41,14 @@
 		self expected = expected
 	@end
 
+	@method register futures...
+		futures :: {_|
+			increaseExpected ()
+			_ onSucceed {join(_)}
+		}
+		return self
+	@end
+
 	@method setExpected value
 	| Set the expected 'value'. This will trigger the callbacks registered with the
 	| 'onMeet' method.
@@ -52,25 +61,39 @@
 	@end
 
 	@method join participant=None
-	| Called by a particpant when it joins the rendez-vous. The given 'participant'
+	| Called by a participant when it joins the rendez-vous. The given 'participant'
 	| value will be added to the list of participants.
 		participants push (participant)
 		trigger ()
 	@end
 	
+	@method bind callback
+	| An alias to 'onMeet' added for 'eventbus.EventSource' compatibility
+		return onMeet (callback)
+	@end
+
 	@method onMeet callback
 	| Registers a callback that will be invoked with this rendez-vous when it
 	| is met. If the rendez-vous is already met, the callback will be invoked
 	| directly.
-		if callback -> meetCallbacks push (callback)
-		trigger ()
+		if callback
+			meetCallbacks push (callback)
+			if isMet ()
+				callback (self)
+			end
+		end
 		return this
 	@end
 
 	@method trigger
 	| Invokes the 'onMeet' callbacks when the number of participants is greater
 	| or equal to the expected number of partipiants.
-		if  participants length >= expected -> meetCallbacks :: {c|c(self)}
+		if isMet () -> meetCallbacks :: {c|c(self)}
+	@end
+
+	@method isMet
+	| Tells if the rendez-vous has been met or not
+		return participants length >= expected 
 	@end
 
 	@method count
@@ -160,9 +183,10 @@
 		return self
 	@end
 
-	@method setPartial
+	@method setPartial value
 	| Some future values may be updated sequentially, this happens when you do a
 	| request to a streaming HTTP service (also known as Comet).
+		_value = value
 		_onPartial      :: {c|
 			try
 				c(_value, self)
@@ -231,12 +255,17 @@
 
 	@method isSet
 	| Tells if this future value was set or not.
-		return (state is STATES SET)
+		return (state == STATES SET)
+	@end
+
+	@method isCancelled
+	| Tells if this future value was cancelled
+		return (state == STATES CANCELLED)
 	@end
 
 	@method hasFailed
 	| Tells if this future has failed or not
-		return (state is STATES FAILED)
+		return (state == STATES FAILED)
 	@end
 
 	@method hasSucceeded
@@ -315,6 +344,7 @@
 	| each callback takes the exception 'e' and the future 'f' as parameters, and will
 	| block propagation to the next by returning 'False'.
 		_onException splice (0,0,callback)
+		return self
 	@end
 
 	@method onCancel callback
@@ -323,6 +353,7 @@
 	| an Future returned by an HTTP Request would have an onCancel callback that would just close the
 	| associated HTTP request.
 		_onCancel splice (0,0,callback)
+		return self
 	@end
 
 	@method getFailureStatus
@@ -341,6 +372,17 @@
 		return _failureContext
 	@end
 
+	@method setOrigin origin
+	| Sets the object that originate this future. HTTP channels will set the
+	| XMLHttpRequest object as the origin of the future.
+		_origin = origin
+		return self
+	@end
+
+	@method getOrigin
+		return self _origin
+	@end
+
 	@method _handleException e
 	| Invoked when a future had and exception. This invokes every callback registered
 	| in the 'onException' list (which were previously registered using the
@@ -356,7 +398,7 @@
 		end
 		# If there is no callback, we print the exception
 		if i == 0
-			print ("channels.Future._handleException: " + e)
+			ExceptionHandler (e)
 		end
 		return r
 	@end
@@ -437,7 +479,7 @@
 		| so that you can easily set up a chain of processing the future value.
 			#assert callback
 			_processors push (callback)
-			if isSet() -> _value = callback(_value)
+			if isSet() -> callback(_value)
 			return self
 		@end
 
@@ -540,6 +582,10 @@
 		return request ("PUT", url, body, headers, future)
 	@end
 
+	@method update url, body=None, headers=[], future=Undefined
+		return request ("UPDATE", url, body, headers, future)
+	@end
+
 	@method delete url, body=None, headers=[], future=Undefined
 		return request ("DELETE", url, body, headers, future)
 	@end
@@ -571,7 +617,7 @@
 			end
 		end
 		future         = transport request (isAsynchronous(), method, request_url, request_body, headers, future or _createFuture(), self options)
-		future onRefresh {f| return post (url, request_body, headers, f) }
+		future onRefresh {f| return request (method, url, request_body, headers, f) }
 		return future
 	@end
 
@@ -616,6 +662,7 @@
 		| Invoked when a future had and exception. This invokes every callback registered
 		| in the 'exceptionCallbacks' list (which were previously registered using the
 		| 'onFail' method).
+			# FIXME: What's the difference with handleException?
 			var i = 0
 			var r = True
 			while i < exceptionCallbacks length
@@ -627,7 +674,7 @@
 			end
 			# If there is no callback, we print the exception
 			if i == 0
-				print ("channels.Future exception: " + e)
+				ExceptionHandler (e)
 			end
 			return r
 		@end
@@ -695,13 +742,23 @@
 
 		@operation NormalizeBody body
 		@as internal
-			if ( typeof(body) != "string" )
-				var new_body = ""
-				var values   = []
-				body :: {v,k|values push (k + "=" + EncodeURI (v))}
-				body = values join "&"
+			if isString(body)
+				return body
+			if extend isNumber(body)
+				return "" + body
+			if extend isObject(body) or extend isList(body)
+				if extend isDefined(FormData) and (body constructor == FormData)
+					return body
+				else
+					var new_body = ""
+					var values   = []
+					body :: {v,k|values push (k + "=" + EncodeURI (v))}
+					body = values join "&"
+					return body
+				end
+			else
+				return (body or '') + ""
 			end
-			return body or ''
 		@end
 
 		@operation EncodeURI value
@@ -918,6 +975,7 @@
 
 	@method request async, method, url, body=None, headers=[], future=(new Future()), options={}
 		var request  = _createRequest ()
+		future setOrigin (request)
 		future onCancel {request abort ()}
 		var response = _processRequest (request,{
 			method       : method
@@ -928,6 +986,16 @@
 			timestamp    : options timestamp
 			success      : {v| future set  (v) }
 			failure      : {v| future fail (v status, v responseText, v) }
+			loading      : {v|
+				var response = ""
+				# In somer versions of IE, this might generate an exception
+				try
+					response = v responseText
+				catch e
+					response = ""
+				end
+				future setPartial (response)
+			}
 		})
 		return future
 	@end
@@ -969,10 +1037,15 @@
 	|   (notably IE) to cache a response that you don't want to cache (even if you
 	|   specify no-cache, or things like this in the response).
 		var callback_was_executed = False
+		var on_request_loading    = {state|
+			if options loading
+				options loading (request)
+			end
+		}
 		var on_request_complete   = {state|
 			callback_was_executed = True
 			if request readyState == 3 and options loading
-					options loading (request)
+				options loading (request)
 			if request readyState == 4
 				if request status >= 200 and request status < 300
 					options success (request)
@@ -1001,6 +1074,9 @@
 		if asynchronous
 			request onreadystatechange = on_request_complete
 		end
+		if extend isDefined (request upload)
+			request upload addEventListener ("progress", on_request_loading, False)
+		end
 		request open (options method or "GET", options url, options asynchronous or False)
 		# On FireFox, headers must be set after request is opened.
 		# <http://developer.mozilla.org/en/docs/XMLHttpRequest>
@@ -1011,7 +1087,11 @@
 				request setRequestHeader (v[0],v[1]) 
 			end
 		}
-		request send (options body or '')
+		try
+			request send (options body or '')
+		catch e
+			options failure (request, e)
+		end
 		# On FireFox, a synchronous request HTTP 'onreadystatechange' callback is
 		# not executed, which means that we have to take care of it manually.
 		# NOTE: When FireBug is enabled, this doesn't happen.. go figure !
@@ -1026,7 +1106,7 @@
 	assert (isMap (data), "channels.parameterize expects a map")
 	var result = Undefined
 	data :: {value,key|
-		var r = encodeURIComponent(value) + "=" + encodeURIComponent(value)
+		var r = encodeURIComponent(key) + "=" + encodeURIComponent(value)
 		if result is Undefined
 			result = r
 		else
